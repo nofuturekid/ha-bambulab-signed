@@ -1,0 +1,440 @@
+From 4ab0817678742716ad0c296762691229c6bdbbe2 Mon Sep 17 00:00:00 2001
+From: Thomas Kroll <t.kroll@outlook.com>
+Date: Wed, 21 Oct 2026 20:20:33 +0200
+Subject: [PATCH] Renew the slicer CRL automatically
+
+Bambu issues CRLs valid for one month and the printer refuses
+app_cert_install with an expired one, so signed control stopped working
+after a month without manual renewal.
+
+Every 12 hours, once the installed CRL expires within 10 days, fetch the
+certificate URL stored in .storage/bambu_lab/slicer_refresh/<serial>.url
+(the request the networking plugin makes on startup), validate the
+response and write it into the entry options; the reload installs it on
+the printer. The CRL must be signed by the returned chain, currently
+valid, newer than the installed one and must not revoke our leaf. The
+key is only replaced when the leaf rotated and must match it (cipher
+ported from BambuKeySaver, MIT). Without a URL or when renewal fails, a
+persistent notification warns from 7 days before expiry. Errors are
+logged by type only, because aiohttp messages contain the URL.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ custom_components/bambu_lab/__init__.py       |   4 +
+ .../bambu_lab/pybambu/slicer_credentials.py   | 224 ++++++++++++++++++
+ custom_components/bambu_lab/slicer_renewal.py | 153 ++++++++++++
+ 3 files changed, 381 insertions(+)
+ create mode 100644 custom_components/bambu_lab/pybambu/slicer_credentials.py
+ create mode 100644 custom_components/bambu_lab/slicer_renewal.py
+
+diff --git a/custom_components/bambu_lab/__init__.py b/custom_components/bambu_lab/__init__.py
+index e0658be..91bd96d 100644
+--- a/custom_components/bambu_lab/__init__.py
++++ b/custom_components/bambu_lab/__init__.py
+@@ -26,6 +26,7 @@ from .const import (
+     SERVICE_CALL_EVENT
+ )
+ from .coordinator import BambuDataUpdateCoordinator
++from .slicer_renewal import async_setup_renewal
+ from .diagnostics import TO_REDACT
+ from .frontend import BambuLabCardRegistration
+ from .config_flow import CONFIG_VERSION
+@@ -433,6 +434,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+     cards = BambuLabCardRegistration(hass)
+     await cards.async_register()
+ 
++    # Keep the slicer CRL current so signed commands keep working.
++    entry.async_on_unload(async_setup_renewal(hass, entry))
++
+     LOGGER.debug("async_setup_entry Complete")
+ 
+     return True
+diff --git a/custom_components/bambu_lab/pybambu/slicer_credentials.py b/custom_components/bambu_lab/pybambu/slicer_credentials.py
+new file mode 100644
+index 0000000..87da1ed
+--- /dev/null
++++ b/custom_components/bambu_lab/pybambu/slicer_credentials.py
+@@ -0,0 +1,224 @@
++"""Renew the slicer application credentials from Bambu's certificate endpoint.
++
++The printer only accepts app_cert_install with a current CRL, and Bambu issues
++CRLs valid for one month. The URL the networking plugin requests on startup
++(/v1/iot-service/api/user/applications/<id>/cert?aes256=...) can be fetched
++again at any time and returns the certificate chain, a freshly issued CRL and
++the private key, the latter encrypted with a fixed custom AES-256-CTR cipher.
++
++The cipher is ported from BambuKeySaver (MIT, https://github.com/Bambuzled/BambuKeySaver),
++which credits https://github.com/danielwoz/BambuSlicerKeySaver for finding it.
++"""
++
++from __future__ import annotations
++
++import base64
++import datetime
++import math
++import re
++from dataclasses import dataclass
++
++from cryptography import x509
++from cryptography.hazmat.primitives import serialization
++from cryptography.hazmat.primitives.asymmetric import rsa
++
++# Fetch a new CRL once the current one expires within this window.
++RENEW_BEFORE = datetime.timedelta(days=10)
++# Tell the user once renewal has not succeeded this close to expiry.
++WARN_BEFORE = datetime.timedelta(days=7)
++
++
++class CredentialError(Exception):
++    """The endpoint response is unusable or does not match the current credentials."""
++
++
++@dataclass(frozen=True)
++class Credentials:
++    cert: str  # PEM chain, leaf first
++    key: str  # PEM RSA private key
++    crl: str  # PEM CRL
++
++
++# --- cipher (AES-256 with a non-standard S-box, CTR mode) -------------------
++
++_SBOX = bytes.fromhex(
++    "c5574d6c3a9505e0a3ba361fea51533b0e074e64500440e8626e9f2d708b2849"
++    "d5f9658d74687c6f0a6ab3af38fe7e8a477fb01600d40f13c9804aac8c4fa798"
++    "83945d48b4e93019039925bf8e41a0e4c3cf2cabd2321a0c11b5566315a6690b"
++    "88bb4c10cb75fa81f8cda1d697b726c69ef15fe5a987c7dc8f7a86209ad108c2"
++    "8409331bdd1efd0171da770dd7de93caa5d0e6608937c821597996ad2434b944"
++    "fcc1aef382464331e32e4bfb9255ed45766daa3ff55a91782206ffd9357d7bdb"
++    "54129cd8d3ee1742523ea4e7df9df2f4ef73f65eb15b18e29b58a82ae13d90b6"
++    "1cbd61eb23a26739f0bcb2f7852772cc29b81dbe66c42fce143c6bec5c2bc002"
++)
++_RCON = bytes(
++    [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D]
++)
++_APPCERT_KEY = bytes(range(32))
++_SKEY_MAGIC = b"SKEY"[::-1]
++
++
++def _xtime(a: int) -> int:
++    return ((a << 1) ^ (0x1B if a & 0x80 else 0)) & 0xFF
++
++
++def _gmul(a: int, b: int) -> int:
++    r = 0
++    while b:
++        if b & 1:
++            r ^= a
++        a = _xtime(a)
++        b >>= 1
++    return r & 0xFF
++
++
++def _key_expand(key: bytes) -> list[bytes]:
++    w = [list(key[4 * i : 4 * i + 4]) for i in range(8)]
++    for i in range(8, 60):
++        t = list(w[i - 1])
++        if i % 8 == 0:
++            t = [_SBOX[t[1]] ^ _RCON[i // 8 - 1], _SBOX[t[2]], _SBOX[t[3]], _SBOX[t[0]]]
++        elif i % 8 == 4:
++            t = [_SBOX[x] for x in t]
++        w.append([w[i - 8][j] ^ t[j] for j in range(4)])
++    return [bytes(b for c in range(4) for b in w[4 * r + c]) for r in range(15)]
++
++
++def _encrypt_block(block: bytes, rk: list[bytes]) -> bytes:
++    s = [block[i] ^ rk[0][i] for i in range(16)]
++    for rnd in range(1, 15):
++        s = [_SBOX[b] for b in s]
++        s = [s[4 * ((c + r) % 4) + r] for c in range(4) for r in range(4)]
++        if rnd < 14:
++            t = []
++            for c in range(4):
++                a0, a1, a2, a3 = s[4 * c : 4 * c + 4]
++                t += [
++                    _gmul(a0, 2) ^ _gmul(a1, 3) ^ a2 ^ a3,
++                    a0 ^ _gmul(a1, 2) ^ _gmul(a2, 3) ^ a3,
++                    a0 ^ a1 ^ _gmul(a2, 2) ^ _gmul(a3, 3),
++                    _gmul(a0, 3) ^ a1 ^ a2 ^ _gmul(a3, 2),
++                ]
++            s = t
++        s = [s[i] ^ rk[rnd][i] for i in range(16)]
++    return bytes(s)
++
++
++def _ctr_xor(nonce: bytes, data: bytes) -> bytes:
++    """Keystream block i is E(nonce || BE32(2 + i)); encrypt == decrypt."""
++    rk = _key_expand(_APPCERT_KEY)
++    out = bytearray(len(data))
++    for i in range((len(data) + 15) // 16):
++        ks = _encrypt_block(nonce + (2 + i).to_bytes(4, "big"), rk)
++        chunk = data[i * 16 : i * 16 + 16]
++        out[i * 16 : i * 16 + len(chunk)] = bytes(x ^ y for x, y in zip(chunk, ks))
++    return bytes(out)
++
++
++def _b64decode_any(text: str) -> bytes:
++    s = re.sub(r"\s+", "", text).replace("-", "+").replace("_", "/")
++    return base64.b64decode(s + "=" * (-len(s) % 4))
++
++
++def decrypt_key_blob(key_b64: str) -> rsa.RSAPrivateKey:
++    """Decode the endpoint's "key" field: nonce(12) | 16 bytes | len(4 LE) | ciphertext."""
++    blob = _b64decode_any(key_b64)
++    if len(blob) < 32:
++        raise CredentialError("key blob too short")
++    ct_len = min(int.from_bytes(blob[28:32], "little"), len(blob) - 32)
++    pt = _ctr_xor(blob[:12], blob[32 : 32 + ct_len])
++    if pt[:4] != _SKEY_MAGIC:
++        raise CredentialError("key blob has no SKEY header; the format changed")
++    # magic | version | bits | len(p) | len(q) | len(dp) | len(dq) | len(qinv), then the values
++    sizes = [int.from_bytes(pt[4 * i : 4 * i + 4], "little") for i in range(3, 8)]
++    if any(size <= 0 for size in sizes) or 32 + sum(sizes) > len(pt):
++        raise CredentialError("implausible component sizes in the key blob")
++    values, off = [], 32
++    for size in sizes:
++        values.append(int.from_bytes(pt[off : off + size], "big"))
++        off += size
++    p, q, dp, dq, qinv = values
++    try:
++        e = pow(dp, -1, p - 1)
++        d = pow(e, -1, (p - 1) * (q - 1) // math.gcd(p - 1, q - 1))
++        public = rsa.RSAPublicNumbers(e, p * q)
++        return rsa.RSAPrivateNumbers(p, q, d, dp, dq, qinv, public).private_key()
++    except ValueError as err:
++        raise CredentialError("key blob does not hold a consistent RSA key") from err
++
++
++# --- response handling ------------------------------------------------------
++
++
++def _pem_blocks(text: str, label: str) -> list[str]:
++    pattern = re.compile(rf"-----BEGIN {label}-----.*?-----END {label}-----", re.DOTALL)
++    return [m.group(0) + "\n" for m in pattern.finditer(text or "")]
++
++
++def crl_next_update(crl_pem: str) -> datetime.datetime:
++    return x509.load_pem_x509_crl(crl_pem.encode()).next_update_utc
++
++
++def needs_renewal(crl_pem: str, now: datetime.datetime) -> bool:
++    return crl_next_update(crl_pem) - now < RENEW_BEFORE
++
++
++def renewed_credentials(
++    response: dict, current: Credentials, now: datetime.datetime
++) -> Credentials | None:
++    """Return the credentials to install, or None when the response has nothing newer.
++
++    The CRL must be issued by a certificate in the returned chain, currently
++    valid and newer than the installed one. The key is replaced only when the
++    leaf certificate rotated, and must match the new leaf.
++    """
++    if response.get("code") not in (0, None) or response.get("error"):
++        raise CredentialError(
++            f"endpoint returned code={response.get('code')} message={response.get('message')!r}"
++        )
++
++    chain_pems = _pem_blocks(response.get("cert") or "", "CERTIFICATE")
++    crl_field = response.get("crl") or []
++    crl_pems = [
++        b
++        for entry in ([crl_field] if isinstance(crl_field, str) else crl_field)
++        for b in _pem_blocks(entry, "X509 CRL")
++    ]
++    if not chain_pems or not crl_pems:
++        raise CredentialError("response lacks certificates or CRL")
++
++    chain = [x509.load_pem_x509_certificate(p.encode()) for p in chain_pems]
++    crl = x509.load_pem_x509_crl(crl_pems[0].encode())
++    issuers = [c for c in chain if c.subject == crl.issuer]
++    if not issuers or not any(crl.is_signature_valid(c.public_key()) for c in issuers):
++        raise CredentialError(
++            "CRL is not signed by a certificate in the returned chain"
++        )
++    if (
++        crl.next_update_utc is None
++        or crl.next_update_utc <= now
++        or crl.last_update_utc > now + datetime.timedelta(hours=1)
++    ):
++        raise CredentialError("CRL validity window does not cover the current time")
++    if crl.get_revoked_certificate_by_serial_number(chain[0].serial_number) is not None:
++        raise CredentialError("the application certificate is revoked")
++
++    installed = x509.load_pem_x509_crl(current.crl.encode())
++    if crl.last_update_utc <= installed.last_update_utc:
++        return None
++
++    current_leaf = x509.load_pem_x509_certificates(current.cert.encode())[0]
++    if chain[0] == current_leaf:
++        return Credentials(cert=current.cert, key=current.key, crl=crl_pems[0])
++
++    if not response.get("key"):
++        raise CredentialError("leaf certificate rotated but the response has no key")
++    key = decrypt_key_blob(response["key"])
++    if key.public_key().public_numbers() != chain[0].public_key().public_numbers():
++        raise CredentialError("decrypted key does not match the new leaf certificate")
++    key_pem = key.private_bytes(
++        serialization.Encoding.PEM,
++        serialization.PrivateFormat.TraditionalOpenSSL,
++        serialization.NoEncryption(),
++    ).decode()
++    return Credentials(cert="".join(chain_pems), key=key_pem, crl=crl_pems[0])
+diff --git a/custom_components/bambu_lab/slicer_renewal.py b/custom_components/bambu_lab/slicer_renewal.py
+new file mode 100644
+index 0000000..18dcb44
+--- /dev/null
++++ b/custom_components/bambu_lab/slicer_renewal.py
+@@ -0,0 +1,153 @@
++"""Keep the slicer CRL current so signed commands keep working.
++
++Every 12 hours: once the installed CRL expires within RENEW_BEFORE, fetch the
++certificate URL stored in .storage/bambu_lab/slicer_refresh/<serial>.url,
++validate the response and write the new credentials into the entry options;
++the reload installs them on the printer. Without a URL, or when renewal keeps
++failing, a persistent notification warns from WARN_BEFORE on.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from collections.abc import Callable
++from datetime import timedelta
++from pathlib import Path
++
++from homeassistant.components import persistent_notification
++from homeassistant.config_entries import ConfigEntry
++from homeassistant.core import HomeAssistant
++from homeassistant.helpers.aiohttp_client import async_get_clientsession
++from homeassistant.helpers.event import async_call_later, async_track_time_interval
++from homeassistant.util import dt as dt_util
++
++from .const import LOGGER
++from .pybambu.slicer_credentials import (
++    WARN_BEFORE,
++    CredentialError,
++    Credentials,
++    crl_next_update,
++    needs_renewal,
++    renewed_credentials,
++)
++
++CHECK_INTERVAL = timedelta(hours=12)
++FIRST_CHECK_DELAY = 120  # seconds after setup
++
++
++def async_setup_renewal(hass: HomeAssistant, entry: ConfigEntry) -> Callable[[], None]:
++    """Schedule the CRL checks for this entry; returns the unsubscribe callback."""
++    lock = asyncio.Lock()
++
++    async def _check(_now=None) -> None:
++        if lock.locked():
++            return
++        async with lock:
++            await _async_check(hass, entry)
++
++    cancel_first = async_call_later(hass, FIRST_CHECK_DELAY, _check)
++    cancel_interval = async_track_time_interval(hass, _check, CHECK_INTERVAL)
++
++    def _unsubscribe() -> None:
++        cancel_first()
++        cancel_interval()
++
++    return _unsubscribe
++
++
++def _read_url(path: Path) -> str | None:
++    try:
++        return path.read_text().strip() or None
++    except FileNotFoundError:
++        return None
++
++
++async def _async_check(hass: HomeAssistant, entry: ConfigEntry) -> None:
++    options = entry.options
++    if not (
++        options.get("slicer_cert")
++        and options.get("slicer_key")
++        and options.get("slicer_crl")
++    ):
++        return
++    serial = entry.data["serial"]
++    notification_id = f"bambu_lab_slicer_crl_{serial}"
++    now = dt_util.utcnow()
++    current = Credentials(
++        cert=options["slicer_cert"],
++        key=options["slicer_key"],
++        crl=options["slicer_crl"],
++    )
++    try:
++        expires = crl_next_update(current.crl)
++    except ValueError:
++        LOGGER.error(
++            "Configured slicer CRL cannot be parsed; signed commands will fail"
++        )
++        return
++    if not needs_renewal(current.crl, now):
++        persistent_notification.async_dismiss(hass, notification_id)
++        return
++
++    path = Path(
++        hass.config.path(".storage", "bambu_lab", "slicer_refresh", f"{serial}.url")
++    )
++    url = await hass.async_add_executor_job(_read_url, path)
++    problem = f"no certificate URL in {path}"
++    if url:
++        try:
++            session = async_get_clientsession(hass)
++            async with asyncio.timeout(30):
++                async with session.get(url) as response:
++                    if response.status != 200:
++                        raise CredentialError(
++                            f"endpoint answered HTTP {response.status}"
++                        )
++                    document = await response.json(content_type=None)
++            renewed = await hass.async_add_executor_job(
++                renewed_credentials, document, current, now
++            )
++        except CredentialError as err:
++            problem = f"renewal failed: {err}"
++            LOGGER.warning("Slicer CRL renewal for %s failed: %s", serial, err)
++        except Exception as err:
++            # Only the type: aiohttp errors embed the request URL, whose query
++            # string is a long-lived credential.
++            problem = f"renewal failed: {type(err).__name__}"
++            LOGGER.warning(
++                "Slicer CRL renewal for %s failed: %s", serial, type(err).__name__
++            )
++        else:
++            if renewed is not None:
++                LOGGER.info(
++                    "Installing renewed slicer CRL for %s, valid until %s",
++                    serial,
++                    crl_next_update(renewed.crl).isoformat(),
++                )
++                hass.config_entries.async_update_entry(
++                    entry,
++                    options={
++                        **options,
++                        "slicer_cert": renewed.cert,
++                        "slicer_key": renewed.key,
++                        "slicer_crl": renewed.crl,
++                    },
++                )
++                persistent_notification.async_dismiss(hass, notification_id)
++                hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
++                return
++            problem = "the endpoint returned no newer CRL"
++
++    if expires - now < WARN_BEFORE:
++        state = (
++            "expired"
++            if expires <= now
++            else f"expires {dt_util.as_local(expires):%Y-%m-%d %H:%M}"
++        )
++        persistent_notification.async_create(
++            hass,
++            f"The slicer CRL for printer {serial} {state}; after that the printer rejects signed "
++            f"commands (temperatures, fans, pause/stop). Automatic renewal: {problem}.",
++            title="Bambu Lab: signing credentials need renewal",
++            notification_id=notification_id,
++        )

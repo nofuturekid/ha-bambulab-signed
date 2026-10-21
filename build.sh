@@ -31,6 +31,7 @@ manifest["version"] = sys.argv[1]
 open(path, "w").write(json.dumps(manifest, indent=2) + "\n")
 PY
 
+python3 -m compileall -q custom_components/bambu_lab
 python3 -m pytest -q -p no:cacheprovider tests/pybambu
 if [ -f scripts/check_translation_parity.py ]; then
 	python3 scripts/check_translation_parity.py

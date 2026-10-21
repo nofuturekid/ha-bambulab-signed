@@ -14,6 +14,7 @@ Current Bambu firmware rejects unsigned control commands from third-party client
 | ------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `0001`–`0003` | [ClusterM/ha-bambulab `mqtt_signing`](https://github.com/ClusterM/ha-bambulab/tree/mqtt_signing) | Signs every `print` request, installs the application certificate on the printer (`security.app_cert_install`) on connect, adds the certificate/key/CRL fields to the options, enables the control entities once signing is configured |
 | `0004`        | this repository                                                                                  | Emits the envelope the printer actually accepted (compact JSON with sorted keys, `*_enc` replacing plaintext `url`/`param`, counter sequence ids); drops a command it cannot sign instead of sending it unsigned                       |
+| `0005`        | this repository                                                                                  | Renews the CRL automatically (see below) and warns in Home Assistant when renewal is not possible                                                                                                                                      |
 
 The signing approach follows [open-bamboo-networking](https://github.com/ClusterM/open-bamboo-networking). See also the more defensive, fan-only upstream proposal [#2121](https://github.com/greghesp/ha-bambulab/pull/2121).
 
@@ -23,7 +24,15 @@ Verified on hardware: X1C, firmware 01.12.00.00, cloud mode — signed `M106` (f
 
 The integration needs an application certificate chain, its private key and the current CRL, the same material the official slicer networking plugin uses. Obtain them from **your own** slicer installation, e.g. with [BambuKeySaver](https://github.com/Bambuzled/BambuKeySaver). This repository contains and distributes no keys or certificates.
 
-Enter them under **Settings → Devices & services → Bambu Lab → Configure → Advanced options** (`Slicer certificate` = the full chain, `Slicer private key`, `Slicer CRL`). The CRL is valid for about a month; refresh it before it expires.
+Enter them under **Settings → Devices & services → Bambu Lab → Configure → Advanced options** (`Slicer certificate` = the full chain, `Slicer private key`, `Slicer CRL`).
+
+### Automatic CRL renewal
+
+The CRL is valid for one month, and the printer rejects an expired one. Bambu issues a fresh CRL whenever the plugin's certificate URL is requested again, so the integration can renew it on its own:
+
+1. Save the URL the capture produced (BambuKeySaver: `trigger-url.txt`) as `/config/.storage/bambu_lab/slicer_refresh/<printer serial>.url` (one line, mode 600). Treat it like a password: its query string is a long-lived credential.
+2. Every 12 hours the integration checks the installed CRL. Once it expires within 10 days, it fetches the URL, verifies that the new CRL is signed by the returned chain, currently valid, newer than the installed one and does not revoke the certificate, then stores it in the options and reloads. If the leaf certificate itself was rotated, the new key is decrypted and must match it.
+3. Without a URL, or if renewal fails, a notification appears in Home Assistant 7 days before expiry.
 
 ## Install (HACS)
 
