@@ -1,8 +1,12 @@
 name: Build release
 
 # Daily: rebuild on top of the latest greghesp/ha-bambulab release whenever
-# upstream or our patch set changed. A failed build opens an issue and the
+# upstream or our build inputs changed. A failed build opens an issue and the
 # previous release stays the one HACS offers.
+#
+# Upstream code and its PyPI test dependencies run only in the `build` job,
+# which has a read-only token and no credentials in the checkout. The jobs
+# that can write (release, issues) run none of that code.
 #
 # Tags are unsigned on purpose: a signing key stored here would sign as the
 # account owner in every repository. Provenance of bambu_lab.zip comes from
@@ -20,24 +24,27 @@ on:
       - build.sh
       - .github/workflows/release.yml
 
-permissions:
-  actions: write
-  attestations: write
-  contents: write
-  id-token: write
-  issues: write
+permissions: {}
 
 concurrency:
   group: release
 
-env:
-  GH_TOKEN: ${{ github.token }}
-
 jobs:
-  release:
+  plan:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    outputs:
+      up: ${{ steps.plan.outputs.up }}
+      build: ${{ steps.plan.outputs.build }}
+      patchset: ${{ steps.plan.outputs.patchset }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Scheduled workflows are disabled after 60 days without commits;
       # re-enabling through the API on every run keeps the schedule alive.
@@ -53,7 +60,7 @@ jobs:
             echo "Unexpected upstream tag: $up" >&2
             exit 1
           fi
-          patchset=$(cat build.sh tests/*.py patches/*.patch | sha256sum | cut -c1-12)
+          patchset=$(cat build.sh tests/*.py patches/*.patch .github/workflows/release.yml | sha256sum | cut -c1-12)
           echo "up=$up" >> "$GITHUB_OUTPUT"
           echo "patchset=$patchset" >> "$GITHUB_OUTPUT"
           releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100")
@@ -68,33 +75,57 @@ jobs:
             '[.[] | select(.tag_name | startswith($up)) | .tag_name | ltrimstr($up) | tonumber] | max // 0' <<<"$releases")
           echo "build=$((last + 1))" >> "$GITHUB_OUTPUT"
 
+  build:
+    needs: plan
+    if: needs.plan.outputs.build != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        if: steps.plan.outputs.build != ''
         with:
           python-version: "3.13"
-
       - name: Build and test
-        if: steps.plan.outputs.build != ''
         env:
-          UP: ${{ steps.plan.outputs.up }}
-          BUILD: ${{ steps.plan.outputs.build }}
+          UP: ${{ needs.plan.outputs.up }}
+          BUILD: ${{ needs.plan.outputs.build }}
         run: |
           pip install -q -r "https://raw.githubusercontent.com/greghesp/ha-bambulab/$UP/tests/requirements.txt" cryptography
           ./build.sh "$UP" "$BUILD" dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
 
-      - name: Attest build provenance
-        if: steps.plan.outputs.build != ''
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+  release:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/bambu_lab.zip
-
       - name: Release
-        if: steps.plan.outputs.build != ''
         env:
-          UP: ${{ steps.plan.outputs.up }}
-          PATCHSET: ${{ steps.plan.outputs.patchset }}
+          GH_TOKEN: ${{ github.token }}
+          UP: ${{ needs.plan.outputs.up }}
+          BUILD: ${{ needs.plan.outputs.build }}
+          PATCHSET: ${{ needs.plan.outputs.patchset }}
         run: |
-          version=$(cat dist/version)
+          # Derive the version from trusted inputs, not from the build output.
+          version="${UP#v}.${BUILD}"
+          [ "$(cat dist/version)" = "$version" ] || { echo "version mismatch" >&2; exit 1; }
           {
             echo "Built on [greghesp/ha-bambulab $UP](https://github.com/greghesp/ha-bambulab/releases/tag/$UP) with \`patches/\` at ${GITHUB_SHA:0:7}."
             echo
@@ -102,25 +133,39 @@ jobs:
             echo
             echo "patchset $PATCHSET"
           } > notes.md
-          gh release create "v$version" dist/bambu_lab.zip --target "$GITHUB_SHA" --title "$version" --notes-file notes.md
+          gh release create "v$version" dist/bambu_lab.zip -R "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "$version" --notes-file notes.md
 
-      - name: Report failure
-        if: failure()
-        env:
-          UP: ${{ steps.plan.outputs.up }}
+  report-failure:
+    needs: [plan, build, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UP: ${{ needs.plan.outputs.up }}
+    steps:
+      - name: Open issue
         run: |
           title="Build failed on upstream ${UP:-release lookup}"
-          open=$(gh issue list --state open --json title --jq '.[].title' | grep -Fx "$title" || true)
-          if [ -z "$open" ]; then
-            gh issue create --title "$title" --body "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --json title --jq '.[].title' | grep -Fx "$title" || true)
+          [ -n "$open" ] && exit 0
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
           The previous release is still the one HACS offers. Usually a patch no longer applies (upstream changed the same code, or merged its own signing) or a test failed."
-          fi
 
   watch-clusterm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Compare ClusterM/mqtt_signing with our pinned base
         run: |
           pinned=$(cat patches/clusterm-mqtt_signing.sha)
