@@ -1,0 +1,24 @@
+From a6ab93337cfc103d5f136f7c8fe169072bcb9755 Mon Sep 17 00:00:00 2001
+From: Alexey Cluster <cluster@cluster.wtf>
+Date: Wed, 30 Sep 2026 19:13:55 +0000
+Subject: [PATCH 3/4] Update test dependencies: add cryptography for slicer
+ request signing
+
+Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
+---
+ tests/requirements.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/tests/requirements.txt b/tests/requirements.txt
+index 336219b..ea0d32b 100644
+--- a/tests/requirements.txt
++++ b/tests/requirements.txt
+@@ -4,4 +4,5 @@ paho-mqtt>=1.6.1  # For MQTT client
+ requests>=2.31.0  # For HTTP requests
+ python-dateutil>=2.8.2  # For date parsing
+ packaging>=23.0  # For version parsing
+-beautifulsoup4>=4.12.0  # For HTML parsing 
+\ No newline at end of file
++beautifulsoup4>=4.12.0  # For HTML parsing
++cryptography>=42.0.0  # For slicer request signing 
+\ No newline at end of file

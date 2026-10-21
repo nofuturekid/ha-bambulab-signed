@@ -1,0 +1,1335 @@
+From c1eea9a94317d579771e8f6a15fdd7898b4574a1 Mon Sep 17 00:00:00 2001
+From: Alexey Cluster <cluster@cluster.wtf>
+Date: Tue, 15 Sep 2026 02:18:34 +0000
+Subject: [PATCH 2/4] `app_cert_install` request on connect, new settings
+
+Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
+---
+ custom_components/bambu_lab/config_flow.py    | 36 ++++++++-----
+ .../bambu_lab/pybambu/bambu_client.py         | 33 +++++++++---
+ .../bambu_lab/pybambu/commands.py             |  9 ++++
+ .../bambu_lab/pybambu/signing.py              | 15 ++++++
+ .../bambu_lab/translations/ca.json            | 20 ++++---
+ .../bambu_lab/translations/cs.json            | 20 ++++---
+ .../bambu_lab/translations/da.json            | 22 ++++----
+ .../bambu_lab/translations/de.json            | 20 ++++---
+ .../bambu_lab/translations/el.json            | 22 ++++----
+ .../bambu_lab/translations/en.json            | 54 +++++++++++++------
+ .../bambu_lab/translations/es.json            | 22 ++++----
+ .../bambu_lab/translations/fr.json            | 22 ++++----
+ .../bambu_lab/translations/it.json            | 20 ++++---
+ .../bambu_lab/translations/ko.json            | 22 ++++----
+ .../bambu_lab/translations/nl.json            | 20 ++++---
+ .../bambu_lab/translations/pl.json            | 20 ++++---
+ .../bambu_lab/translations/pt-br.json         | 22 ++++----
+ .../bambu_lab/translations/pt.json            | 22 ++++----
+ .../bambu_lab/translations/sk.json            | 22 ++++----
+ .../bambu_lab/translations/th.json            | 22 ++++----
+ .../bambu_lab/translations/zh-Hans.json       | 22 ++++----
+ 21 files changed, 314 insertions(+), 173 deletions(-)
+
+diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
+index 26a318c..aa7eb6a 100644
+--- a/custom_components/bambu_lab/config_flow.py
++++ b/custom_components/bambu_lab/config_flow.py
+@@ -434,8 +434,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+                             "usage_hours": float(user_input['usage_hours']),
+                             "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
+                             "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
+-                            "slicer_cert_id": user_input['advanced'].get('slicer_cert_id', ''),
++                            "slicer_cert": user_input['advanced'].get('slicer_cert', ''),
+                             "slicer_key": user_input['advanced'].get('slicer_key', ''),
++                            "slicer_crl": user_input['advanced'].get('slicer_crl', ''),
+                             "force_ip": force_ip,
+                     }
+ 
+@@ -453,8 +454,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+         default_usage_hours = "0" if user_input is None else user_input['usage_hours']
+         default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
+         default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
+-        default_slicer_cert_id = '' if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
+         default_slicer_key = '' if user_input is None else user_input.get('advanced', {}).get('slicer_key', '')
++        default_slicer_cert = '' if user_input is None else user_input.get('advanced', {}).get('slicer_cert', '')
++        default_slicer_crl = '' if user_input is None else user_input.get('advanced', {}).get('slicer_crl', '')
+ 
+         # Build form
+         fields: OrderedDict[vol.Marker, Any] = OrderedDict()
+@@ -470,8 +472,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
+                 vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
+                 # Use suggested_value (not default) so clearing the field saves as empty.
+-                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
++                vol.Optional('slicer_cert', description={"suggested_value": default_slicer_cert}): MULTILINE_TEXT_SELECTOR,
+                 vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
++                vol.Optional('slicer_crl', description={"suggested_value": default_slicer_crl}): MULTILINE_TEXT_SELECTOR,
+             }),
+             {'collapsed': True},
+         )
+@@ -524,8 +527,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+                         "usage_hours": float(user_input['usage_hours']),
+                         "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
+                         "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
+-                        "slicer_cert_id": user_input['advanced'].get('slicer_cert_id', ''),
++                        "slicer_cert": user_input['advanced'].get('slicer_cert', ''),
+                         "slicer_key": user_input['advanced'].get('slicer_key', ''),
++                        "slicer_crl": user_input['advanced'].get('slicer_crl', ''),
+                         "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
+                 }
+ 
+@@ -556,8 +560,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+         default_usage_hours = "0" if user_input is None else user_input['usage_hours']
+         default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
+         default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
+-        default_slicer_cert_id = '' if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
+         default_slicer_key = '' if user_input is None else user_input.get('advanced', {}).get('slicer_key', '')
++        default_slicer_cert = '' if user_input is None else user_input.get('advanced', {}).get('slicer_cert', '')
++        default_slicer_crl = '' if user_input is None else user_input.get('advanced', {}).get('slicer_crl', '')
+ 
+         # Build form
+         fields: OrderedDict[vol.Marker, Any] = OrderedDict()
+@@ -572,8 +577,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
+                 vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
+                 # Use suggested_value (not default) so clearing the field saves as empty.
+-                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
++                vol.Optional('slicer_cert', description={"suggested_value": default_slicer_cert}): MULTILINE_TEXT_SELECTOR,
+                 vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
++                vol.Optional('slicer_crl', description={"suggested_value": default_slicer_crl}): MULTILINE_TEXT_SELECTOR,
+             }),
+             {'collapsed': True},
+         )
+@@ -886,8 +892,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                     options["usage_hours"] = float(user_input['usage_hours'])
+                     options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
+                     options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
+-                    options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
++                    options["slicer_cert"] = user_input['advanced'].get('slicer_cert', '')
+                     options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
++                    options["slicer_crl"] = user_input['advanced'].get('slicer_crl', '')
+                     options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
+                     options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
+                     options["force_ip"] = force_ip
+@@ -924,8 +931,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
+         # After submit, missing optional keys mean the user cleared them — do not
+         # fall back to the previously stored options value.
+-        default_slicer_cert_id = self._config_entry.options.get('slicer_cert_id', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
+         default_slicer_key = self._config_entry.options.get('slicer_key', '') if user_input is None else user_input.get('advanced', {}).get('slicer_key', '')
++        default_slicer_cert = self._config_entry.options.get('slicer_cert', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert', '')
++        default_slicer_crl = self._config_entry.options.get('slicer_crl', '') if user_input is None else user_input.get('advanced', {}).get('slicer_crl', '')
+ 
+         # Build form
+         fields: OrderedDict[vol.Marker, Any] = OrderedDict()
+@@ -942,8 +950,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
+                 vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
+                 # Use suggested_value (not default) so clearing the field saves as empty.
+-                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
++                vol.Optional('slicer_cert', description={"suggested_value": default_slicer_cert}): MULTILINE_TEXT_SELECTOR,
+                 vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
++                vol.Optional('slicer_crl', description={"suggested_value": default_slicer_crl}): MULTILINE_TEXT_SELECTOR,
+             }),
+             {'collapsed': True},
+         )
+@@ -992,8 +1001,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                 options["usage_hours"] = float(user_input['usage_hours'])
+                 options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
+                 options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
+-                options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
++                options["slicer_cert"] = user_input['advanced'].get('slicer_cert', '')
+                 options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
++                options["slicer_crl"] = user_input['advanced'].get('slicer_crl', '')
+                 options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
+ 
+                 title = self._config_entry.data['serial']
+@@ -1029,8 +1039,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
+         # After submit, missing optional keys mean the user cleared them — do not
+         # fall back to the previously stored options value.
+-        default_slicer_cert_id = self._config_entry.options.get('slicer_cert_id', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
+         default_slicer_key = self._config_entry.options.get('slicer_key', '') if user_input is None else user_input.get('advanced', {}).get('slicer_key', '')
++        default_slicer_cert = self._config_entry.options.get('slicer_cert', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert', '')
++        default_slicer_crl = self._config_entry.options.get('slicer_crl', '') if user_input is None else user_input.get('advanced', {}).get('slicer_crl', '')
+ 
+         fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
+         fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
+@@ -1042,8 +1053,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
+                 vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
+                 # Use suggested_value (not default) so clearing the field saves as empty.
+-                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
++                vol.Optional('slicer_cert', description={"suggested_value": default_slicer_cert}): MULTILINE_TEXT_SELECTOR,
+                 vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
++                vol.Optional('slicer_crl', description={"suggested_value": default_slicer_crl}): MULTILINE_TEXT_SELECTOR,
+             }),
+             {'collapsed': True},
+         )
+diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
+index 3395ea3..0486fec 100644
+--- a/custom_components/bambu_lab/pybambu/bambu_client.py
++++ b/custom_components/bambu_lab/pybambu/bambu_client.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import asyncio
++import copy
+ import ftplib
+ import functools
+ import json
+@@ -27,12 +28,13 @@ from .const import (
+ )
+ from .models import Device, SlicerSettings
+ from .commands import (
++    APP_CERT_INSTALL_TEMPLATE,
+     GET_VERSION,
+     PUSH_ALL,
+     START_PUSH,
+ )
+ from .mock_mqtt_client import MockMQTTClient
+-from .signing import load_signing_key, maybe_sign
++from .signing import cert_id_from_pem, load_signing_key, maybe_sign
+ from .device_cert import (
+     leaf_pem_from_chain,
+     load_device_cert,
+@@ -40,7 +42,6 @@ from .device_cert import (
+     public_key_from_cert_pem,
+     save_device_cert,
+ )
+-from .tests import MockMQTTClient
+ from .utils import safe_json_loads
+ 
+ class WatchdogThread(threading.Thread):
+@@ -397,7 +398,14 @@ class BambuClient:
+         self._tcp6000_media_probe_time = 0.0
+         self._slicer_cert_id = config.get('slicer_cert_id', '')
+         self._slicer_key = config.get('slicer_key', '')
+-        self._signing_key = load_signing_key(self._slicer_key) if (self._slicer_cert_id and self._slicer_key) else None
++        self._slicer_cert = config.get('slicer_cert', '')
++        self._slicer_crl = config.get('slicer_crl', '')
++        self._slicer_cert_id = cert_id_from_pem(self._slicer_cert) if self._slicer_cert else None
++        self._signing_key = (
++            load_signing_key(self._slicer_key)
++            if (self._slicer_cert_id and self._slicer_key)
++            else None
++        )
+         self._device_cert_path = config.get('device_cert_path', '')
+         self._device_cert_pem: str | None = None
+         self._device_public_key = None
+@@ -448,7 +456,7 @@ class BambuClient:
+     @property
+     def mqtt_signing_enabled(self) -> bool:
+         """Return True when we can sign outgoing print commands."""
+-        return self._signing_key is not None and self._slicer_cert_id != ''
++        return self._signing_key is not None and bool(self._slicer_cert_id)
+ 
+     def get_printer_device_cert(self) -> str | None:
+         """Return the cached leaf device-cert PEM."""
+@@ -608,6 +616,16 @@ class BambuClient:
+         self.publish(GET_VERSION)
+         self.publish(PUSH_ALL)
+ 
++    def _publish_app_cert_install(self) -> None:
++        """Install shared app cert + CRL into the printer trust store (RAM)."""
++        if not self._slicer_cert or not self._slicer_crl:
++            return
++        command = copy.deepcopy(APP_CERT_INSTALL_TEMPLATE)
++        command["security"]["app_cert"] = self._slicer_cert
++        command["security"]["crl"] = self._slicer_crl
++        LOGGER.debug("Publishing security.app_cert_install")
++        self.publish(command)
++
+     def on_connect(self,
+                    client_: mqtt.Client,
+                    userdata: None,
+@@ -641,7 +659,10 @@ class BambuClient:
+         self._connected = True
+         self._device_confirmed = False
+ 
+-        self.subscribe_and_request_info()
++        self.subscribe()
++        self._publish_app_cert_install()
++        self.publish(GET_VERSION)
++        self.publish(PUSH_ALL)
+ 
+     def _on_device_confirmed(self):
+         """Called on first data payload received from the printer after connection."""
+@@ -776,7 +797,7 @@ class BambuClient:
+         if self.mqtt_signing_enabled:
+             msg = maybe_sign(
+                 msg,
+-                self._slicer_cert_id,
++                self._slicer_cert_id or '',
+                 self._signing_key,
+                 device_key=self.get_printer_device_public_key(),
+             )
+diff --git a/custom_components/bambu_lab/pybambu/commands.py b/custom_components/bambu_lab/pybambu/commands.py
+index 97720e8..39fc053 100644
+--- a/custom_components/bambu_lab/pybambu/commands.py
++++ b/custom_components/bambu_lab/pybambu/commands.py
+@@ -172,3 +172,12 @@ BUZZER_SET_BEEPING = {"print" : {"sequence_id": "0", "command": "buzzer_ctrl", "
+ 
+ AIRDUCT_SET_MODE_TEMPLATE = {"print": {"sequence_id": "0", "command": "set_airduct", "modeId": 0, "submode": -1}}
+ 
++APP_CERT_INSTALL_TEMPLATE = {
++    "security": {
++        "command": "app_cert_install",
++        "sequence_id": "0",
++        "app_cert": "",
++        "crl": "",
++    }
++}
++
+diff --git a/custom_components/bambu_lab/pybambu/signing.py b/custom_components/bambu_lab/pybambu/signing.py
+index c3f178f..9117efa 100644
+--- a/custom_components/bambu_lab/pybambu/signing.py
++++ b/custom_components/bambu_lab/pybambu/signing.py
+@@ -5,11 +5,13 @@ import json
+ 
+ from typing import Any
+ 
++from cryptography import x509
+ from cryptography.hazmat.primitives import hashes, serialization
+ from cryptography.hazmat.primitives.asymmetric import padding
+ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+ 
+ from .const import LOGGER
++from .device_cert import leaf_pem_from_chain
+ 
+ SIGN_ALG = "RSA_SHA256"
+ SIGN_VER = "v1.0"
+@@ -27,6 +29,19 @@ def load_signing_key(pem: str) -> RSAPrivateKey | None:
+         return None
+ 
+ 
++def cert_id_from_pem(pem_or_chain: str) -> str | None:
++    """Build MQTT header.cert_id from app leaf cert: lowercase_hex(serial) + RFC4514 issuer."""
++    leaf = leaf_pem_from_chain(pem_or_chain)
++    if not leaf:
++        return None
++    try:
++        cert = x509.load_pem_x509_certificate(leaf.encode("utf-8"))
++        return format(cert.serial_number, "x") + cert.issuer.rfc4514_string()
++    except Exception as e:
++        LOGGER.error(f"Failed to derive slicer cert_id: {type(e)} {e}")
++        return None
++
++
+ def _is_print_payload(msg: Any) -> bool:
+     """Mirror the C++ is_print_payload: the first JSON key must be 'print'."""
+     if not isinstance(msg, dict) or not msg:
+diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
+index f413f63..3f99d99 100644
+--- a/custom_components/bambu_lab/translations/ca.json
++++ b/custom_components/bambu_lab/translations/ca.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactiva la verificació SSL",
+               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
+-              "slicer_cert_id": "ID del certificat del slicer (opcional):",
+-              "slicer_key": "Clau privada del slicer (opcional):"
++              "slicer_key": "Clau privada del slicer (opcional):",
++              "slicer_cert": "Certificat del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactiva la verificació SSL",
+               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
+-              "slicer_cert_id": "ID del certificat del slicer (opcional):",
+-              "slicer_key": "Clau privada del slicer (opcional):"
++              "slicer_key": "Clau privada del slicer (opcional):",
++              "slicer_cert": "Certificat del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactiva la verificació SSL",
+               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
+-              "slicer_cert_id": "ID del certificat del slicer (opcional):",
+-              "slicer_key": "Clau privada del slicer (opcional):"
++              "slicer_key": "Clau privada del slicer (opcional):",
++              "slicer_cert": "Certificat del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactiva la verificació SSL",
+               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
+-              "slicer_cert_id": "ID del certificat del slicer (opcional):",
+-              "slicer_key": "Clau privada del slicer (opcional):"
++              "slicer_key": "Clau privada del slicer (opcional):",
++              "slicer_cert": "Certificat del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
+index 3946945..3a439bc 100644
+--- a/custom_components/bambu_lab/translations/cs.json
++++ b/custom_components/bambu_lab/translations/cs.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázat ověřování SSL",
+               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
+-              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
+-              "slicer_key": "Soukromý klíč sliceru (volitelné):"
++              "slicer_key": "Soukromý klíč sliceru (volitelné):",
++              "slicer_cert": "Certifikát sliceru (volitelné):",
++              "slicer_crl": "CRL sliceru (volitelné):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázat ověřování SSL",
+               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
+-              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
+-              "slicer_key": "Soukromý klíč sliceru (volitelné):"
++              "slicer_key": "Soukromý klíč sliceru (volitelné):",
++              "slicer_cert": "Certifikát sliceru (volitelné):",
++              "slicer_crl": "CRL sliceru (volitelné):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázat ověřování SSL",
+               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
+-              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
+-              "slicer_key": "Soukromý klíč sliceru (volitelné):"
++              "slicer_key": "Soukromý klíč sliceru (volitelné):",
++              "slicer_cert": "Certifikát sliceru (volitelné):",
++              "slicer_crl": "CRL sliceru (volitelné):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázat ověřování SSL",
+               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
+-              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
+-              "slicer_key": "Soukromý klíč sliceru (volitelné):"
++              "slicer_key": "Soukromý klíč sliceru (volitelné):",
++              "slicer_cert": "Certifikát sliceru (volitelné):",
++              "slicer_crl": "CRL sliceru (volitelné):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
+index d4e1a59..2f0c1ca 100644
+--- a/custom_components/bambu_lab/translations/da.json
++++ b/custom_components/bambu_lab/translations/da.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Deaktiver SSL -verifikation",
+               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
+-              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
+-              "slicer_key": "Slicer privat nøgle (valgfrit):"
++              "slicer_key": "Slicer privat nøgle (valgfrit):",
++              "slicer_cert": "Slicer-certifikat (valgfrit):",
++              "slicer_crl": "Slicer-CRL (valgfrit):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Deaktiver SSL -verifikation",
+               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
+-              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
+-              "slicer_key": "Slicer privat nøgle (valgfrit):"
++              "slicer_key": "Slicer privat nøgle (valgfrit):",
++              "slicer_cert": "Slicer-certifikat (valgfrit):",
++              "slicer_crl": "Slicer-CRL (valgfrit):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Deaktiver SSL -verifikation",
+               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
+-              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
+-              "slicer_key": "Slicer privat nøgle (valgfrit):"
++              "slicer_key": "Slicer privat nøgle (valgfrit):",
++              "slicer_cert": "Slicer-certifikat (valgfrit):",
++              "slicer_crl": "Slicer-CRL (valgfrit):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Deaktiver SSL -verifikation",
+               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
+-              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
+-              "slicer_key": "Slicer privat nøgle (valgfrit):"
++              "slicer_key": "Slicer privat nøgle (valgfrit):",
++              "slicer_cert": "Slicer-certifikat (valgfrit):",
++              "slicer_crl": "Slicer-CRL (valgfrit):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "Printeren afviste den konfigurerede adgangskode til {device}. Dette betyder normalt, at koden blev gendannet, for eksempel ved en fabriksnulstilling. Læs den nye adgangskode fra printerens netværksindstillinger, og genkonfigurer integrationen med den."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
+index f4f824f..0d3de85 100644
+--- a/custom_components/bambu_lab/translations/de.json
++++ b/custom_components/bambu_lab/translations/de.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
+               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
+-              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
+-              "slicer_key": "Privater Slicer-Schlüssel (optional):"
++              "slicer_key": "Privater Slicer-Schlüssel (optional):",
++              "slicer_cert": "Slicer-Zertifikat (optional):",
++              "slicer_crl": "Slicer-CRL (optional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
+               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
+-              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
+-              "slicer_key": "Privater Slicer-Schlüssel (optional):"
++              "slicer_key": "Privater Slicer-Schlüssel (optional):",
++              "slicer_cert": "Slicer-Zertifikat (optional):",
++              "slicer_crl": "Slicer-CRL (optional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
+               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
+-              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
+-              "slicer_key": "Privater Slicer-Schlüssel (optional):"
++              "slicer_key": "Privater Slicer-Schlüssel (optional):",
++              "slicer_cert": "Slicer-Zertifikat (optional):",
++              "slicer_crl": "Slicer-CRL (optional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
+               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
+-              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
+-              "slicer_key": "Privater Slicer-Schlüssel (optional):"
++              "slicer_key": "Privater Slicer-Schlüssel (optional):",
++              "slicer_cert": "Slicer-Zertifikat (optional):",
++              "slicer_crl": "Slicer-CRL (optional):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
+index f831271..8829afc 100644
+--- a/custom_components/bambu_lab/translations/el.json
++++ b/custom_components/bambu_lab/translations/el.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
+               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
+-              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
+-              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
++              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):",
++              "slicer_cert": "Πιστοποιητικό slicer (προαιρετικό):",
++              "slicer_crl": "CRL slicer (προαιρετικό):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
+               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
+-              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
+-              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
++              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):",
++              "slicer_cert": "Πιστοποιητικό slicer (προαιρετικό):",
++              "slicer_crl": "CRL slicer (προαιρετικό):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
+               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
+-              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
+-              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
++              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):",
++              "slicer_cert": "Πιστοποιητικό slicer (προαιρετικό):",
++              "slicer_crl": "CRL slicer (προαιρετικό):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
+               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
+-              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
+-              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
++              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):",
++              "slicer_cert": "Πιστοποιητικό slicer (προαιρετικό):",
++              "slicer_crl": "CRL slicer (προαιρετικό):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "Ο εκτυπωτής απέρριψε τον διαμορφωμένο κωδικό πρόσβασης για τη συσκευή {device}. Αυτό συνήθως σημαίνει ότι ο κώδικας αναδημιουργήθηκε, για παράδειγμα με επαναφορά εργοστασιακών ρυθμίσεων. Διαβάστε τον νέο κωδικό πρόσβασης από την οθόνη ρυθμίσεων δικτύου του εκτυπωτή και διαμορφώστε εκ νέου την ενσωμάτωση με αυτόν."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
+index b65d9f2..8d68ab5 100644
+--- a/custom_components/bambu_lab/translations/en.json
++++ b/custom_components/bambu_lab/translations/en.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Disable SSL verification",
+               "enable_firmware_update": "Enable firmware update support",
+-              "slicer_cert_id": "Slicer certificate ID (optional):",
+-              "slicer_key": "Slicer private key (optional):"
++              "slicer_key": "Slicer private key (optional):",
++              "slicer_cert": "Slicer certificate (optional):",
++              "slicer_crl": "Slicer CRL (optional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Disable SSL verification",
+               "enable_firmware_update": "Enable firmware update support",
+-              "slicer_cert_id": "Slicer certificate ID (optional):",
+-              "slicer_key": "Slicer private key (optional):"
++              "slicer_key": "Slicer private key (optional):",
++              "slicer_cert": "Slicer certificate (optional):",
++              "slicer_crl": "Slicer CRL (optional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Disable SSL verification",
+               "enable_firmware_update": "Enable firmware update support",
+-              "slicer_cert_id": "Slicer certificate ID (optional):",
+-              "slicer_key": "Slicer private key (optional):"
++              "slicer_key": "Slicer private key (optional):",
++              "slicer_cert": "Slicer certificate (optional):",
++              "slicer_crl": "Slicer CRL (optional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Disable SSL verification",
+               "enable_firmware_update": "Enable firmware update support",
+-              "slicer_cert_id": "Slicer certificate ID (optional):",
+-              "slicer_key": "Slicer private key (optional):"
++              "slicer_key": "Slicer private key (optional):",
++              "slicer_cert": "Slicer certificate (optional):",
++              "slicer_crl": "Slicer CRL (optional):"
+             }
+           }
+         }
+@@ -507,7 +511,7 @@
+           "moving_toolhead_to_center_of_heatbed": "Moving toolhead to center of heatbed",
+           "active_arc_fitting": "Active arc fitting",
+           "hotend_type_detection": "Hotend type detection",
+-          "build_plate_alignment_detection" : "Build plate alignment detection",
++          "build_plate_alignment_detection": "Build plate alignment detection",
+           "heatbed_surface_foreign_object_detection": "Heatbed surface foreign object detection",
+           "heatbed_underside_foreign_object_detection": "Heatbed underside foreign object detection",
+           "pre_extrusion_before_printing": "Pre-extrusion before printing",
+@@ -840,7 +844,9 @@
+           "empty": "Empty"
+         },
+         "state_attributes": {
+-          "slot": { "name": "Slot" },
++          "slot": {
++            "name": "Slot"
++          },
+           "nozzle_type": {
+             "name": "Nozzle type",
+             "state": {
+@@ -853,10 +859,18 @@
+               "unknown": "Unknown"
+             }
+           },
+-          "nozzle_diameter": { "name": "Nozzle diameter" },
+-          "serial": { "name": "Serial number" },
+-          "max_temp": { "name": "Max temperature" },
+-          "wear": { "name": "Wear" },
++          "nozzle_diameter": {
++            "name": "Nozzle diameter"
++          },
++          "serial": {
++            "name": "Serial number"
++          },
++          "max_temp": {
++            "name": "Max temperature"
++          },
++          "wear": {
++            "name": "Wear"
++          },
+           "status": {
+             "name": "Status",
+             "state": {
+@@ -865,9 +879,15 @@
+               "unknown": "Unknown"
+             }
+           },
+-          "color": { "name": "Color" },
+-          "filament_id": { "name": "Filament ID" },
+-          "filament_name": { "name": "Filament name" }
++          "color": {
++            "name": "Color"
++          },
++          "filament_id": {
++            "name": "Filament ID"
++          },
++          "filament_name": {
++            "name": "Filament name"
++          }
+         }
+       },
+       "hotend_rack_hotend_used_time": {
+diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
+index f85e11e..6b761c7 100644
+--- a/custom_components/bambu_lab/translations/es.json
++++ b/custom_components/bambu_lab/translations/es.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactivar la verificación SSL",
+               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
+-              "slicer_cert_id": "ID del certificado del slicer (opcional):",
+-              "slicer_key": "Clave privada del slicer (opcional):"
++              "slicer_key": "Clave privada del slicer (opcional):",
++              "slicer_cert": "Certificado del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactivar la verificación SSL",
+               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
+-              "slicer_cert_id": "ID del certificado del slicer (opcional):",
+-              "slicer_key": "Clave privada del slicer (opcional):"
++              "slicer_key": "Clave privada del slicer (opcional):",
++              "slicer_cert": "Certificado del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactivar la verificación SSL",
+               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
+-              "slicer_cert_id": "ID del certificado del slicer (opcional):",
+-              "slicer_key": "Clave privada del slicer (opcional):"
++              "slicer_key": "Clave privada del slicer (opcional):",
++              "slicer_cert": "Certificado del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Desactivar la verificación SSL",
+               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
+-              "slicer_cert_id": "ID del certificado del slicer (opcional):",
+-              "slicer_key": "Clave privada del slicer (opcional):"
++              "slicer_key": "Clave privada del slicer (opcional):",
++              "slicer_cert": "Certificado del slicer (opcional):",
++              "slicer_crl": "CRL del slicer (opcional):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "{device} está conectado a la nube pero con conexión mqtt local mediante la integración. Esto bloquea el ajuste de temperaturas y la reimpresión del historial. Cambie la conexión a la nube pura para permitir el control total."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
+index 7f1dc1c..838a924 100644
+--- a/custom_components/bambu_lab/translations/fr.json
++++ b/custom_components/bambu_lab/translations/fr.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Désactiver la vérification SSL",
+               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
+-              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
+-              "slicer_key": "Clé privée du slicer (facultatif) :"
++              "slicer_key": "Clé privée du slicer (facultatif) :",
++              "slicer_cert": "Certificat du slicer (facultatif) :",
++              "slicer_crl": "CRL du slicer (facultatif) :"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Désactiver la vérification SSL",
+               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
+-              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
+-              "slicer_key": "Clé privée du slicer (facultatif) :"
++              "slicer_key": "Clé privée du slicer (facultatif) :",
++              "slicer_cert": "Certificat du slicer (facultatif) :",
++              "slicer_crl": "CRL du slicer (facultatif) :"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Désactiver la vérification SSL",
+               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
+-              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
+-              "slicer_key": "Clé privée du slicer (facultatif) :"
++              "slicer_key": "Clé privée du slicer (facultatif) :",
++              "slicer_cert": "Certificat du slicer (facultatif) :",
++              "slicer_crl": "CRL du slicer (facultatif) :"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Désactiver la vérification SSL",
+               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
+-              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
+-              "slicer_key": "Clé privée du slicer (facultatif) :"
++              "slicer_key": "Clé privée du slicer (facultatif) :",
++              "slicer_cert": "Certificat du slicer (facultatif) :",
++              "slicer_crl": "CRL du slicer (facultatif) :"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "L'imprimante a rejeté le code d'accès configuré pour {device}. Cela signifie généralement que le code a été régénéré, par exemple par une réinitialisation d'usine. Lisez le nouveau code d'accès sur l'écran des paramètres réseau de l'imprimante et reconfigurez l'intégration avec celui-ci."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
+index 1ea8a37..8d170cb 100644
+--- a/custom_components/bambu_lab/translations/it.json
++++ b/custom_components/bambu_lab/translations/it.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Disabilita la verifica SSL",
+               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
+-              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
+-              "slicer_key": "Chiave privata dello slicer (opzionale):"
++              "slicer_key": "Chiave privata dello slicer (opzionale):",
++              "slicer_cert": "Certificato dello slicer (opzionale):",
++              "slicer_crl": "CRL dello slicer (opzionale):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Disabilita la verifica SSL",
+               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
+-              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
+-              "slicer_key": "Chiave privata dello slicer (opzionale):"
++              "slicer_key": "Chiave privata dello slicer (opzionale):",
++              "slicer_cert": "Certificato dello slicer (opzionale):",
++              "slicer_crl": "CRL dello slicer (opzionale):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Disabilita la verifica SSL",
+               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
+-              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
+-              "slicer_key": "Chiave privata dello slicer (opzionale):"
++              "slicer_key": "Chiave privata dello slicer (opzionale):",
++              "slicer_cert": "Certificato dello slicer (opzionale):",
++              "slicer_crl": "CRL dello slicer (opzionale):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Disabilita la verifica SSL",
+               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
+-              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
+-              "slicer_key": "Chiave privata dello slicer (opzionale):"
++              "slicer_key": "Chiave privata dello slicer (opzionale):",
++              "slicer_cert": "Certificato dello slicer (opzionale):",
++              "slicer_crl": "CRL dello slicer (opzionale):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
+index 5eb84e0..83b384f 100644
+--- a/custom_components/bambu_lab/translations/ko.json
++++ b/custom_components/bambu_lab/translations/ko.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL 확인을 비활성화합니다",
+               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
+-              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
+-              "slicer_key": "슬라이서 개인 키 (선택 사항):"
++              "slicer_key": "슬라이서 개인 키 (선택 사항):",
++              "slicer_cert": "슬라이서 인증서 (선택 사항):",
++              "slicer_crl": "슬라이서 CRL (선택 사항):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL 확인을 비활성화합니다",
+               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
+-              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
+-              "slicer_key": "슬라이서 개인 키 (선택 사항):"
++              "slicer_key": "슬라이서 개인 키 (선택 사항):",
++              "slicer_cert": "슬라이서 인증서 (선택 사항):",
++              "slicer_crl": "슬라이서 CRL (선택 사항):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL 확인을 비활성화합니다",
+               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
+-              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
+-              "slicer_key": "슬라이서 개인 키 (선택 사항):"
++              "slicer_key": "슬라이서 개인 키 (선택 사항):",
++              "slicer_cert": "슬라이서 인증서 (선택 사항):",
++              "slicer_crl": "슬라이서 CRL (선택 사항):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "SSL 확인을 비활성화합니다",
+               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
+-              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
+-              "slicer_key": "슬라이서 개인 키 (선택 사항):"
++              "slicer_key": "슬라이서 개인 키 (선택 사항):",
++              "slicer_cert": "슬라이서 인증서 (선택 사항):",
++              "slicer_crl": "슬라이서 CRL (선택 사항):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "프린터가 {device}에 대해 구성된 액세스 코드를 거부했습니다. 이는 일반적으로 공장 초기화 등을 통해 코드가 재생성되었음을 의미합니다. 프린터의 네트워크 설정 화면에서 새 액세스 코드를 읽고 그것과의 통합을 재구성하십시오."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
+index 047a153..8c2e99d 100644
+--- a/custom_components/bambu_lab/translations/nl.json
++++ b/custom_components/bambu_lab/translations/nl.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Schakel SSL -verificatie uit",
+               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
+-              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
+-              "slicer_key": "Privésleutel van slicer (optioneel):"
++              "slicer_key": "Privésleutel van slicer (optioneel):",
++              "slicer_cert": "Slicer-certificaat (optioneel):",
++              "slicer_crl": "Slicer-CRL (optioneel):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Schakel SSL -verificatie uit",
+               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
+-              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
+-              "slicer_key": "Privésleutel van slicer (optioneel):"
++              "slicer_key": "Privésleutel van slicer (optioneel):",
++              "slicer_cert": "Slicer-certificaat (optioneel):",
++              "slicer_crl": "Slicer-CRL (optioneel):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Schakel SSL -verificatie uit",
+               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
+-              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
+-              "slicer_key": "Privésleutel van slicer (optioneel):"
++              "slicer_key": "Privésleutel van slicer (optioneel):",
++              "slicer_cert": "Slicer-certificaat (optioneel):",
++              "slicer_crl": "Slicer-CRL (optioneel):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Schakel SSL -verificatie uit",
+               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
+-              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
+-              "slicer_key": "Privésleutel van slicer (optioneel):"
++              "slicer_key": "Privésleutel van slicer (optioneel):",
++              "slicer_cert": "Slicer-certificaat (optioneel):",
++              "slicer_crl": "Slicer-CRL (optioneel):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
+index 335ffaf..cd92f62 100644
+--- a/custom_components/bambu_lab/translations/pl.json
++++ b/custom_components/bambu_lab/translations/pl.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Wyłącz weryfikację SSL",
+               "enable_firmware_update": "Włącz aktualizację oprogramowania",
+-              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
+-              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
++              "slicer_key": "Klucz prywatny slicera (opcjonalnie):",
++              "slicer_cert": "Certyfikat slicera (opcjonalnie):",
++              "slicer_crl": "CRL slicera (opcjonalnie):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Wyłącz weryfikację SSL",
+               "enable_firmware_update": "Włącz aktualizację oprogramowania",
+-              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
+-              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
++              "slicer_key": "Klucz prywatny slicera (opcjonalnie):",
++              "slicer_cert": "Certyfikat slicera (opcjonalnie):",
++              "slicer_crl": "CRL slicera (opcjonalnie):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Wyłącz weryfikację SSL",
+               "enable_firmware_update": "Włącz aktualizację oprogramowania",
+-              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
+-              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
++              "slicer_key": "Klucz prywatny slicera (opcjonalnie):",
++              "slicer_cert": "Certyfikat slicera (opcjonalnie):",
++              "slicer_crl": "CRL slicera (opcjonalnie):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Wyłącz weryfikację SSL",
+               "enable_firmware_update": "Włącz aktualizację oprogramowania",
+-              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
+-              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
++              "slicer_key": "Klucz prywatny slicera (opcjonalnie):",
++              "slicer_cert": "Certyfikat slicera (opcjonalnie):",
++              "slicer_crl": "CRL slicera (opcjonalnie):"
+             }
+           }
+         }
+diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
+index 8acb9d1..e36b359 100644
+--- a/custom_components/bambu_lab/translations/pt-br.json
++++ b/custom_components/bambu_lab/translations/pt-br.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Desative a verificação SSL",
+               "enable_firmware_update": "Ativar suporte de atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Desative a verificação SSL",
+               "enable_firmware_update": "Ativar suporte de atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Desative a verificação SSL",
+               "enable_firmware_update": "Ativar suporte de atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Desative a verificação SSL",
+               "enable_firmware_update": "Ativar suporte de atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "A impressora rejeitou o código de acesso configurado para {device}. Isso geralmente significa que o código foi regenerado, por exemplo, por uma redefinição de fábrica. Leia o novo código de acesso na tela de configurações de rede da impressora e reconfigure a integração com ele."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
+index cc14ec2..ca3fb64 100644
+--- a/custom_components/bambu_lab/translations/pt.json
++++ b/custom_components/bambu_lab/translations/pt.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Desativar verificação SSL",
+               "enable_firmware_update": "Ativar suporte para atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Desativar verificação SSL",
+               "enable_firmware_update": "Ativar suporte para atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Desativar verificação SSL",
+               "enable_firmware_update": "Ativar suporte para atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Desativar verificação SSL",
+               "enable_firmware_update": "Ativar suporte para atualização de firmware",
+-              "slicer_cert_id": "ID do certificado do slicer (opcional):",
+-              "slicer_key": "Chave privada do slicer (opcional):"
++              "slicer_key": "Chave privada do slicer (opcional):",
++              "slicer_cert": "Certificado do slicer (opcional):",
++              "slicer_crl": "CRL do slicer (opcional):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "A impressora rejeitou o código de acesso configurado para {device}. Isso geralmente significa que o código foi regenerado, por exemplo, por uma redefinição de fábrica. Leia o novo código de acesso na tela de configurações de rede da impressora e reconfigure a integração com ele."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
+index 1d9f9fe..0874642 100644
+--- a/custom_components/bambu_lab/translations/sk.json
++++ b/custom_components/bambu_lab/translations/sk.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázať overenie SSL",
+               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
+-              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
+-              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
++              "slicer_key": "Súkromný kľúč slicera (voliteľné):",
++              "slicer_cert": "Certifikát slicera (voliteľné):",
++              "slicer_crl": "CRL slicera (voliteľné):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázať overenie SSL",
+               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
+-              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
+-              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
++              "slicer_key": "Súkromný kľúč slicera (voliteľné):",
++              "slicer_cert": "Certifikát slicera (voliteľné):",
++              "slicer_crl": "CRL slicera (voliteľné):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázať overenie SSL",
+               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
+-              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
+-              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
++              "slicer_key": "Súkromný kľúč slicera (voliteľné):",
++              "slicer_cert": "Certifikát slicera (voliteľné):",
++              "slicer_crl": "CRL slicera (voliteľné):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "Zakázať overenie SSL",
+               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
+-              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
+-              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
++              "slicer_key": "Súkromný kľúč slicera (voliteľné):",
++              "slicer_cert": "Certifikát slicera (voliteľné):",
++              "slicer_crl": "CRL slicera (voliteľné):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "Tlačiareň odmietla nakonfigurovaný prístupový kód pre {device}. Zvyčajne to znamená, že kód bol vygenerovaný, napríklad obnovením továrenského nastavenia. Prečítajte si nový prístupový kód na obrazovke sieťových nastavení tlačiarne a prekonfigurujte s ním integráciu."
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
+index 93f825b..35a25d1 100644
+--- a/custom_components/bambu_lab/translations/th.json
++++ b/custom_components/bambu_lab/translations/th.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
+               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
+-              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
+-              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
++              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):",
++              "slicer_cert": "ใบรับรองสไลเซอร์ (ไม่บังคับ):",
++              "slicer_crl": "CRL ของสไลเซอร์ (ไม่บังคับ):"
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
+               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
+-              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
+-              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
++              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):",
++              "slicer_cert": "ใบรับรองสไลเซอร์ (ไม่บังคับ):",
++              "slicer_crl": "CRL ของสไลเซอร์ (ไม่บังคับ):"
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
+               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
+-              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
+-              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
++              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):",
++              "slicer_cert": "ใบรับรองสไลเซอร์ (ไม่บังคับ):",
++              "slicer_crl": "CRL ของสไลเซอร์ (ไม่บังคับ):"
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
+               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
+-              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
+-              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
++              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):",
++              "slicer_cert": "ใบรับรองสไลเซอร์ (ไม่บังคับ):",
++              "slicer_crl": "CRL ของสไลเซอร์ (ไม่บังคับ):"
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "เครื่องพิมพ์ปฏิเสธรหัสการเข้าถึงที่กำหนดค่าไว้สำหรับ {device} ซึ่งโดยทั่วไปหมายถึงรหัสถูกสร้างขึ้นใหม่ เช่น โดยการรีเซ็ตเป็นค่าจากโรงงาน อ่านรหัสการเข้าถึงใหม่จากหน้าจอการตั้งค่าเครือข่ายของเครื่องพิมพ์ และกำหนดค่าการรวมใหม่ด้วย"
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
+index 4dbba56..6cd3052 100644
+--- a/custom_components/bambu_lab/translations/zh-Hans.json
++++ b/custom_components/bambu_lab/translations/zh-Hans.json
+@@ -85,8 +85,9 @@
+             "data": {
+               "disable_ssl_verify": "禁用SSL验证",
+               "enable_firmware_update": "启用固件更新支持",
+-              "slicer_cert_id": "切片器证书 ID（可选）：",
+-              "slicer_key": "切片器私钥（可选）："
++              "slicer_key": "切片器私钥（可选）：",
++              "slicer_cert": "切片器证书（可选）：",
++              "slicer_crl": "切片器 CRL（可选）："
+             }
+           }
+         }
+@@ -109,8 +110,9 @@
+             "data": {
+               "disable_ssl_verify": "禁用SSL验证",
+               "enable_firmware_update": "启用固件更新支持",
+-              "slicer_cert_id": "切片器证书 ID（可选）：",
+-              "slicer_key": "切片器私钥（可选）："
++              "slicer_key": "切片器私钥（可选）：",
++              "slicer_cert": "切片器证书（可选）：",
++              "slicer_crl": "切片器 CRL（可选）："
+             }
+           }
+         }
+@@ -184,8 +186,9 @@
+             "data": {
+               "disable_ssl_verify": "禁用SSL验证",
+               "enable_firmware_update": "启用固件更新支持",
+-              "slicer_cert_id": "切片器证书 ID（可选）：",
+-              "slicer_key": "切片器私钥（可选）："
++              "slicer_key": "切片器私钥（可选）：",
++              "slicer_cert": "切片器证书（可选）：",
++              "slicer_crl": "切片器 CRL（可选）："
+             }
+           }
+         }
+@@ -207,8 +210,9 @@
+             "data": {
+               "disable_ssl_verify": "禁用SSL验证",
+               "enable_firmware_update": "启用固件更新支持",
+-              "slicer_cert_id": "切片器证书 ID（可选）：",
+-              "slicer_key": "切片器私钥（可选）："
++              "slicer_key": "切片器私钥（可选）：",
++              "slicer_cert": "切片器证书（可选）：",
++              "slicer_crl": "切片器 CRL（可选）："
+             }
+           }
+         }
+@@ -949,4 +953,4 @@
+       "description": "打印机拒绝为 {device} 配置的访问代码。这通常意味着代码已重新生成，例如通过恢复出厂设置。从打印机的网络设置屏幕读取新的访问代码并重新配置与其集成。"
+     }
+   }
+-}
+\ No newline at end of file
++}

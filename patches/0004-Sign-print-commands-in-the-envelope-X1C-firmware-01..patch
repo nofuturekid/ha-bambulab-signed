@@ -1,0 +1,132 @@
+From de4657c39e97d3ce6cbf67898002a0c2e27f696f Mon Sep 17 00:00:00 2001
+From: Thomas Kroll <t.kroll@outlook.com>
+Date: Wed, 21 Oct 2026 20:03:20 +0200
+Subject: [PATCH 4/4] Sign print commands in the envelope X1C firmware 01.12
+ accepts
+
+The printer (X1C, firmware 01.12.00.00, cloud mode) accepted signed
+commands only in this form, verified on hardware with M106 and M140:
+
+- print section as compact JSON with sorted keys, published
+  byte-identical to the signed string '{"print":<section>}'
+- url/param replaced by their *_enc counterparts, no plaintext copy
+- sequence_id from a counter (>= 20000) instead of the template "0"
+
+A command that cannot be signed (no printer device key yet, or any
+error) is dropped instead of sent unsigned, which would raise
+HMS 0500_0500_0001_0007.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../bambu_lab/pybambu/bambu_client.py         |  6 +-
+ .../bambu_lab/pybambu/signing.py              | 62 +++++++++++--------
+ 2 files changed, 40 insertions(+), 28 deletions(-)
+
+diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
+index 0486fec..d4ddd60 100644
+--- a/custom_components/bambu_lab/pybambu/bambu_client.py
++++ b/custom_components/bambu_lab/pybambu/bambu_client.py
+@@ -801,7 +801,11 @@ class BambuClient:
+                 self._signing_key,
+                 device_key=self.get_printer_device_public_key(),
+             )
+-        result = self.client.publish(f"device/{self._serial}/request", json.dumps(msg))
++        if msg is None:
++            LOGGER.error(f"Not sending unsignable command to device/{self._serial}/request")
++            return False
++        payload = msg if isinstance(msg, str) else json.dumps(msg)
++        result = self.client.publish(f"device/{self._serial}/request", payload)
+         status = result.rc
+         if status == 0:
+             LOGGER.debug(f"Sent {msg} to topic device/{self._serial}/request")
+diff --git a/custom_components/bambu_lab/pybambu/signing.py b/custom_components/bambu_lab/pybambu/signing.py
+index 9117efa..5e04af5 100644
+--- a/custom_components/bambu_lab/pybambu/signing.py
++++ b/custom_components/bambu_lab/pybambu/signing.py
+@@ -1,6 +1,8 @@
+ from __future__ import annotations
+ 
+ import base64
++import copy
++import itertools
+ import json
+ 
+ from typing import Any
+@@ -16,6 +18,9 @@ from .device_cert import leaf_pem_from_chain
+ SIGN_ALG = "RSA_SHA256"
+ SIGN_VER = "v1.0"
+ PRINT_FIELDS_TO_ENCRYPT = ["url", "param"]
++# Command sequence ids for signed requests. The printer accepted ids >= 20000
++# from a counter; restarts begin again at 30000 (in memory only).
++_SEQUENCE = itertools.count(30000)
+ 
+ 
+ def load_signing_key(pem: str) -> RSAPrivateKey | None:
+@@ -94,37 +99,40 @@ def maybe_sign(
+     if key is None or not cert_id or not _is_print_payload(msg):
+         return msg
+ 
++    # Emit the envelope X1C firmware 01.12 accepts: compact JSON with sorted
++    # keys, *_enc fields replacing their plaintext, and the published print
++    # section byte-identical to the signed one. Any failure drops the command,
++    # because an unsigned one trips HMS 0500_0500_0001_0007.
+     if device_key is None:
+-        LOGGER.debug("maybe_sign: device_key is None; argument encryption unavailable")
++        LOGGER.error("maybe_sign: printer device key missing; dropping print command")
++        return None
+ 
+     try:
+-        if device_key is not None and "print" in msg:
+-            for field in PRINT_FIELDS_TO_ENCRYPT:
+-                if field in msg["print"]:
+-                    field_bytes = msg["print"][field].encode("utf-8")
+-                    msg["print"][field + "_enc"] = _rsa_pkcs1v15_encrypt_b64(
+-                        device_key, field_bytes
+-                    )
+-
+-        print_dump = json.dumps(msg["print"])
+-        to_sign = '{ "print": ' + print_dump + '}'
+-        to_sign_bytes = to_sign.encode("utf-8")
+-
+-        signature = key.sign(to_sign_bytes, padding.PKCS1v15(), hashes.SHA256())
+-        sig_b64 = base64.b64encode(signature).decode("ascii")
+-
+-        # Build the envelope with a fixed key order matching the reference
+-        # implementation so the signed 'print' section stays byte-identical.
+-        return {
+-            "header": {
++        body = copy.deepcopy(msg["print"])
++        body["sequence_id"] = str(next(_SEQUENCE))
++        for field in PRINT_FIELDS_TO_ENCRYPT:
++            if field in body:
++                body[field + "_enc"] = _rsa_pkcs1v15_encrypt_b64(
++                    device_key, body.pop(field).encode("utf-8")
++                )
++
++        print_text = json.dumps(body, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
++        signed_bytes = ('{"print":' + print_text + '}').encode("utf-8")
++        signature = key.sign(signed_bytes, padding.PKCS1v15(), hashes.SHA256())
++
++        header_text = json.dumps(
++            {
+                 "cert_id": cert_id,
+-                "payload_len": len(to_sign_bytes),
++                "payload_len": len(signed_bytes),
+                 "sign_alg": SIGN_ALG,
+-                "sign_string": sig_b64,
+-                "sign_ver": SIGN_VER
++                "sign_string": base64.b64encode(signature).decode("ascii"),
++                "sign_ver": SIGN_VER,
+             },
+-            "print": json.loads(print_dump)
+-        }
++            separators=(",", ":"),
++            sort_keys=True,
++            ensure_ascii=False,
++        )
++        return '{"header":' + header_text + ',"print":' + print_text + '}'
+     except Exception as e:
+-        LOGGER.error(f"Failed to sign print payload, sending unsigned: {type(e)} {e}")
+-        return msg
++        LOGGER.error(f"Failed to sign print payload, dropping it: {type(e)} {e}")
++        return None

@@ -1,0 +1,136 @@
+name: Build release
+
+# Daily: rebuild on top of the latest greghesp/ha-bambulab release whenever
+# upstream or our patch set changed. A failed build opens an issue and the
+# previous release stays the one HACS offers.
+#
+# Tags are unsigned on purpose: a signing key stored here would sign as the
+# account owner in every repository. Provenance of bambu_lab.zip comes from
+# a build attestation instead:
+#   gh attestation verify bambu_lab.zip -R nofuturekid/ha-bambulab-signed
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - patches/**
+      - tests/**
+      - build.sh
+      - .github/workflows/release.yml
+
+permissions:
+  actions: write
+  attestations: write
+  contents: write
+  id-token: write
+  issues: write
+
+concurrency:
+  group: release
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Scheduled workflows are disabled after 60 days without commits;
+      # re-enabling through the API on every run keeps the schedule alive.
+      - name: Keep schedule alive
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/enable"
+
+      - name: Plan
+        id: plan
+        run: |
+          up=$(gh api repos/greghesp/ha-bambulab/releases/latest --jq .tag_name)
+          # The tag comes from another repository: accept only a plain version.
+          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected upstream tag: $up" >&2
+            exit 1
+          fi
+          patchset=$(cat build.sh tests/*.py patches/*.patch | sha256sum | cut -c1-12)
+          echo "up=$up" >> "$GITHUB_OUTPUT"
+          echo "patchset=$patchset" >> "$GITHUB_OUTPUT"
+          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100")
+          done=$(jq -r --arg up "$up." --arg p "patchset $patchset" \
+            '.[] | select(.tag_name | startswith($up)) | select(.body | contains($p)) | .tag_name' <<<"$releases")
+          if [ -n "$done" ]; then
+            echo "Already released as $done"
+            echo "build=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(jq -r --arg up "$up." \
+            '[.[] | select(.tag_name | startswith($up)) | .tag_name | ltrimstr($up) | tonumber] | max // 0' <<<"$releases")
+          echo "build=$((last + 1))" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.plan.outputs.build != ''
+        with:
+          python-version: "3.13"
+
+      - name: Build and test
+        if: steps.plan.outputs.build != ''
+        env:
+          UP: ${{ steps.plan.outputs.up }}
+          BUILD: ${{ steps.plan.outputs.build }}
+        run: |
+          pip install -q -r "https://raw.githubusercontent.com/greghesp/ha-bambulab/$UP/tests/requirements.txt" cryptography
+          ./build.sh "$UP" "$BUILD" dist
+
+      - name: Attest build provenance
+        if: steps.plan.outputs.build != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/bambu_lab.zip
+
+      - name: Release
+        if: steps.plan.outputs.build != ''
+        env:
+          UP: ${{ steps.plan.outputs.up }}
+          PATCHSET: ${{ steps.plan.outputs.patchset }}
+        run: |
+          version=$(cat dist/version)
+          {
+            echo "Built on [greghesp/ha-bambulab $UP](https://github.com/greghesp/ha-bambulab/releases/tag/$UP) with \`patches/\` at ${GITHUB_SHA:0:7}."
+            echo
+            echo "Verify: \`gh attestation verify bambu_lab.zip -R $GITHUB_REPOSITORY\`"
+            echo
+            echo "patchset $PATCHSET"
+          } > notes.md
+          gh release create "v$version" dist/bambu_lab.zip --target "$GITHUB_SHA" --title "$version" --notes-file notes.md
+
+      - name: Report failure
+        if: failure()
+        env:
+          UP: ${{ steps.plan.outputs.up }}
+        run: |
+          title="Build failed on upstream ${UP:-release lookup}"
+          open=$(gh issue list --state open --json title --jq '.[].title' | grep -Fx "$title" || true)
+          if [ -z "$open" ]; then
+            gh issue create --title "$title" --body "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          The previous release is still the one HACS offers. Usually a patch no longer applies (upstream changed the same code, or merged its own signing) or a test failed."
+          fi
+
+  watch-clusterm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Compare ClusterM/mqtt_signing with our pinned base
+        run: |
+          pinned=$(cat patches/clusterm-mqtt_signing.sha)
+          head=$(gh api repos/ClusterM/ha-bambulab/branches/mqtt_signing --jq .commit.sha 2>/dev/null || echo gone)
+          [[ $head =~ ^([0-9a-f]{40}|gone)$ ]] || { echo "Unexpected branch head: $head" >&2; exit 1; }
+          [ "$head" = "$pinned" ] && exit 0
+          title="ClusterM mqtt_signing changed (${head:0:7})"
+          open=$(gh issue list --state open --json title --jq '.[].title' | grep -Fx "$title" || true)
+          [ -n "$open" ] && exit 0
+          gh issue create --title "$title" --body "Patches 0001-0003 come from https://github.com/ClusterM/ha-bambulab/tree/mqtt_signing at $pinned.
+
+          Compare: https://github.com/ClusterM/ha-bambulab/compare/$pinned...$head
+          (\`gone\` means the branch was deleted or renamed.)"
