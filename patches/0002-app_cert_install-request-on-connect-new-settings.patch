@@ -1,7 +1,7 @@
 From 532394e0e31c5a991f1c6b7502822d7558240db9 Mon Sep 17 00:00:00 2001
 From: Alexey Cluster <cluster@cluster.wtf>
 Date: Tue, 15 Sep 2026 02:18:34 +0000
-Subject: [PATCH 2/5] `app_cert_install` request on connect, new settings
+Subject: [PATCH 2/6] `app_cert_install` request on connect, new settings
 
 Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
 ---

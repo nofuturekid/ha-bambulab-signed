@@ -1,0 +1,42 @@
+From cb006ca321e374b5a0b8c6836fd037480172cb21 Mon Sep 17 00:00:00 2001
+From: Thomas Kroll <t.kroll@outlook.com>
+Date: Sat, 14 Nov 2026 09:49:49 +0100
+Subject: [PATCH 6/6] Model the signing state in the PrintFun tests
+
+PrintFun only raises event_printer_mqtt_encryption_enabled when the
+client cannot sign commands. The tests used a bare MagicMock, whose
+mqtt_signing_enabled attribute is truthy, so the flag3 event test saw
+no event. Pin the stock state (no signing) and cover the signed case.
+---
+ tests/pybambu/test_print_fun.py | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/tests/pybambu/test_print_fun.py b/tests/pybambu/test_print_fun.py
+index ee1feab..0f7a381 100644
+--- a/tests/pybambu/test_print_fun.py
++++ b/tests/pybambu/test_print_fun.py
+@@ -7,6 +7,8 @@ from pybambu.models import PrintFun
+ class TestPrintFunSignatureDetection(unittest.TestCase):
+     def setUp(self):
+         self.client = MagicMock()
++        # Stock client: no signing credentials configured.
++        self.client.mqtt_signing_enabled = False
+         self.fun = PrintFun(client=self.client)
+ 
+     def test_fun_bit29_set_means_secured(self):
+@@ -45,6 +47,15 @@ class TestPrintFunSignatureDetection(unittest.TestCase):
+         self.fun.print_update({"fun": "", "flag3": 65552})
+         self.client.callback.assert_called_once_with("event_printer_mqtt_encryption_enabled")
+ 
++    def test_no_encryption_event_when_commands_can_be_signed(self):
++        # With signing configured the control entities stay usable, so
++        # Home Assistant must not be told that control is blocked.
++        self.client.mqtt_signing_enabled = True
++        self.fun.print_update({"fun": "", "flag3": 65552})
++        self.fun.print_update({"fun": "20000000"})
++        self.assertTrue(self.fun.mqtt_signature_required)
++        self.client.callback.assert_not_called()
++
+     def test_no_data_means_not_secured(self):
+         self.fun.print_update({})
+         self.assertFalse(self.fun.mqtt_signature_required)

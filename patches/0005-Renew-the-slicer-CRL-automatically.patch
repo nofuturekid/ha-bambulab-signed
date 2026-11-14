@@ -1,7 +1,7 @@
 From a8d2c7cf7a999a661926d950d2c192076b8da093 Mon Sep 17 00:00:00 2001
 From: Thomas Kroll <t.kroll@outlook.com>
 Date: Wed, 21 Oct 2026 20:20:33 +0200
-Subject: [PATCH 5/5] Renew the slicer CRL automatically
+Subject: [PATCH 5/6] Renew the slicer CRL automatically
 
 Bambu issues CRLs valid for one month and the printer refuses
 app_cert_install with an expired one, so signed control stopped working

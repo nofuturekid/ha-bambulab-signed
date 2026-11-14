@@ -1,7 +1,7 @@
 From e69e0dc0c1162671b5b092b2e5ebe5b859ce5452 Mon Sep 17 00:00:00 2001
 From: Alexey Cluster <cluster@cluster.wtf>
 Date: Wed, 30 Sep 2026 19:13:55 +0000
-Subject: [PATCH 3/5] Update test dependencies: add cryptography for slicer
+Subject: [PATCH 3/6] Update test dependencies: add cryptography for slicer
  request signing
 
 Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
