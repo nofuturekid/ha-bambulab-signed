@@ -1,7 +1,7 @@
-From c1eea9a94317d579771e8f6a15fdd7898b4574a1 Mon Sep 17 00:00:00 2001
+From 532394e0e31c5a991f1c6b7502822d7558240db9 Mon Sep 17 00:00:00 2001
 From: Alexey Cluster <cluster@cluster.wtf>
 Date: Tue, 15 Sep 2026 02:18:34 +0000
-Subject: [PATCH 2/4] `app_cert_install` request on connect, new settings
+Subject: [PATCH 2/5] `app_cert_install` request on connect, new settings
 
 Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
 ---
@@ -29,10 +29,10 @@ Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
  21 files changed, 314 insertions(+), 173 deletions(-)
 
 diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
-index 26a318c..aa7eb6a 100644
+index 456f11d..78b01d0 100644
 --- a/custom_components/bambu_lab/config_flow.py
 +++ b/custom_components/bambu_lab/config_flow.py
-@@ -434,8 +434,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -437,8 +437,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                              "usage_hours": float(user_input['usage_hours']),
                              "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                              "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -43,7 +43,7 @@ index 26a318c..aa7eb6a 100644
                              "force_ip": force_ip,
                      }
  
-@@ -453,8 +454,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -456,8 +457,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -54,7 +54,7 @@ index 26a318c..aa7eb6a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -470,8 +472,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -473,8 +475,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -65,7 +65,7 @@ index 26a318c..aa7eb6a 100644
              }),
              {'collapsed': True},
          )
-@@ -524,8 +527,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -527,8 +530,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                          "usage_hours": float(user_input['usage_hours']),
                          "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                          "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -76,7 +76,7 @@ index 26a318c..aa7eb6a 100644
                          "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
                  }
  
-@@ -556,8 +560,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -559,8 +563,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -87,7 +87,7 @@ index 26a318c..aa7eb6a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -572,8 +577,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -575,8 +580,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -98,7 +98,7 @@ index 26a318c..aa7eb6a 100644
              }),
              {'collapsed': True},
          )
-@@ -886,8 +892,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -891,8 +897,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                      options["usage_hours"] = float(user_input['usage_hours'])
                      options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                      options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -109,7 +109,7 @@ index 26a318c..aa7eb6a 100644
                      options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
                      options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
                      options["force_ip"] = force_ip
-@@ -924,8 +931,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -929,8 +936,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
          # After submit, missing optional keys mean the user cleared them — do not
          # fall back to the previously stored options value.
@@ -120,7 +120,7 @@ index 26a318c..aa7eb6a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -942,8 +950,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -947,8 +955,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -131,7 +131,7 @@ index 26a318c..aa7eb6a 100644
              }),
              {'collapsed': True},
          )
-@@ -992,8 +1001,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -997,8 +1006,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  options["usage_hours"] = float(user_input['usage_hours'])
                  options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                  options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -142,7 +142,7 @@ index 26a318c..aa7eb6a 100644
                  options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
  
                  title = self._config_entry.data['serial']
-@@ -1029,8 +1039,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1034,8 +1044,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
          # After submit, missing optional keys mean the user cleared them — do not
          # fall back to the previously stored options value.
@@ -153,7 +153,7 @@ index 26a318c..aa7eb6a 100644
  
          fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
          fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
-@@ -1042,8 +1053,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1047,8 +1058,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -165,7 +165,7 @@ index 26a318c..aa7eb6a 100644
              {'collapsed': True},
          )
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index 3395ea3..0486fec 100644
+index a4e31fd..623e85f 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
 @@ -1,6 +1,7 @@
@@ -199,7 +199,7 @@ index 3395ea3..0486fec 100644
  from .utils import safe_json_loads
  
  class WatchdogThread(threading.Thread):
-@@ -397,7 +398,14 @@ class BambuClient:
+@@ -414,7 +415,14 @@ class BambuClient:
          self._tcp6000_media_probe_time = 0.0
          self._slicer_cert_id = config.get('slicer_cert_id', '')
          self._slicer_key = config.get('slicer_key', '')
@@ -215,7 +215,7 @@ index 3395ea3..0486fec 100644
          self._device_cert_path = config.get('device_cert_path', '')
          self._device_cert_pem: str | None = None
          self._device_public_key = None
-@@ -448,7 +456,7 @@ class BambuClient:
+@@ -465,7 +473,7 @@ class BambuClient:
      @property
      def mqtt_signing_enabled(self) -> bool:
          """Return True when we can sign outgoing print commands."""
@@ -224,7 +224,7 @@ index 3395ea3..0486fec 100644
  
      def get_printer_device_cert(self) -> str | None:
          """Return the cached leaf device-cert PEM."""
-@@ -608,6 +616,16 @@ class BambuClient:
+@@ -625,6 +633,16 @@ class BambuClient:
          self.publish(GET_VERSION)
          self.publish(PUSH_ALL)
  
@@ -241,7 +241,7 @@ index 3395ea3..0486fec 100644
      def on_connect(self,
                     client_: mqtt.Client,
                     userdata: None,
-@@ -641,7 +659,10 @@ class BambuClient:
+@@ -657,7 +675,10 @@ class BambuClient:
          self._connected = True
          self._device_confirmed = False
  
@@ -253,7 +253,7 @@ index 3395ea3..0486fec 100644
  
      def _on_device_confirmed(self):
          """Called on first data payload received from the printer after connection."""
-@@ -776,7 +797,7 @@ class BambuClient:
+@@ -790,7 +811,7 @@ class BambuClient:
          if self.mqtt_signing_enabled:
              msg = maybe_sign(
                  msg,
@@ -318,7 +318,7 @@ index c3f178f..9117efa 100644
      """Mirror the C++ is_print_payload: the first JSON key must be 'print'."""
      if not isinstance(msg, dict) or not msg:
 diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
-index f413f63..3f99d99 100644
+index 250d4da..56820de 100644
 --- a/custom_components/bambu_lab/translations/ca.json
 +++ b/custom_components/bambu_lab/translations/ca.json
 @@ -85,8 +85,9 @@
@@ -370,7 +370,7 @@ index f413f63..3f99d99 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
-index 3946945..3a439bc 100644
+index 864a41c..0349d21 100644
 --- a/custom_components/bambu_lab/translations/cs.json
 +++ b/custom_components/bambu_lab/translations/cs.json
 @@ -85,8 +85,9 @@
@@ -422,7 +422,7 @@ index 3946945..3a439bc 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
-index d4e1a59..2f0c1ca 100644
+index 7eab9ad..db591f2 100644
 --- a/custom_components/bambu_lab/translations/da.json
 +++ b/custom_components/bambu_lab/translations/da.json
 @@ -85,8 +85,9 @@
@@ -473,7 +473,7 @@ index d4e1a59..2f0c1ca 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "Printeren afviste den konfigurerede adgangskode til {device}. Dette betyder normalt, at koden blev gendannet, for eksempel ved en fabriksnulstilling. Læs den nye adgangskode fra printerens netværksindstillinger, og genkonfigurer integrationen med den."
      }
    }
@@ -481,7 +481,7 @@ index d4e1a59..2f0c1ca 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
-index f4f824f..0d3de85 100644
+index 618919b..b266f28 100644
 --- a/custom_components/bambu_lab/translations/de.json
 +++ b/custom_components/bambu_lab/translations/de.json
 @@ -85,8 +85,9 @@
@@ -533,7 +533,7 @@ index f4f824f..0d3de85 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
-index f831271..8829afc 100644
+index 1783651..ac27e3e 100644
 --- a/custom_components/bambu_lab/translations/el.json
 +++ b/custom_components/bambu_lab/translations/el.json
 @@ -85,8 +85,9 @@
@@ -584,7 +584,7 @@ index f831271..8829afc 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "Ο εκτυπωτής απέρριψε τον διαμορφωμένο κωδικό πρόσβασης για τη συσκευή {device}. Αυτό συνήθως σημαίνει ότι ο κώδικας αναδημιουργήθηκε, για παράδειγμα με επαναφορά εργοστασιακών ρυθμίσεων. Διαβάστε τον νέο κωδικό πρόσβασης από την οθόνη ρυθμίσεων δικτύου του εκτυπωτή και διαμορφώστε εκ νέου την ενσωμάτωση με αυτόν."
      }
    }
@@ -592,7 +592,7 @@ index f831271..8829afc 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
-index b65d9f2..8d68ab5 100644
+index 682ab21..7882e15 100644
 --- a/custom_components/bambu_lab/translations/en.json
 +++ b/custom_components/bambu_lab/translations/en.json
 @@ -85,8 +85,9 @@
@@ -643,7 +643,7 @@ index b65d9f2..8d68ab5 100644
              }
            }
          }
-@@ -507,7 +511,7 @@
+@@ -614,7 +618,7 @@
            "moving_toolhead_to_center_of_heatbed": "Moving toolhead to center of heatbed",
            "active_arc_fitting": "Active arc fitting",
            "hotend_type_detection": "Hotend type detection",
@@ -652,7 +652,7 @@ index b65d9f2..8d68ab5 100644
            "heatbed_surface_foreign_object_detection": "Heatbed surface foreign object detection",
            "heatbed_underside_foreign_object_detection": "Heatbed underside foreign object detection",
            "pre_extrusion_before_printing": "Pre-extrusion before printing",
-@@ -840,7 +844,9 @@
+@@ -1018,7 +1022,9 @@
            "empty": "Empty"
          },
          "state_attributes": {
@@ -663,7 +663,7 @@ index b65d9f2..8d68ab5 100644
            "nozzle_type": {
              "name": "Nozzle type",
              "state": {
-@@ -853,10 +859,18 @@
+@@ -1031,10 +1037,18 @@
                "unknown": "Unknown"
              }
            },
@@ -686,7 +686,7 @@ index b65d9f2..8d68ab5 100644
            "status": {
              "name": "Status",
              "state": {
-@@ -865,9 +879,15 @@
+@@ -1043,9 +1057,15 @@
                "unknown": "Unknown"
              }
            },
@@ -706,7 +706,7 @@ index b65d9f2..8d68ab5 100644
        },
        "hotend_rack_hotend_used_time": {
 diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
-index f85e11e..6b761c7 100644
+index 76e6da5..974c926 100644
 --- a/custom_components/bambu_lab/translations/es.json
 +++ b/custom_components/bambu_lab/translations/es.json
 @@ -85,8 +85,9 @@
@@ -757,7 +757,7 @@ index f85e11e..6b761c7 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "{device} está conectado a la nube pero con conexión mqtt local mediante la integración. Esto bloquea el ajuste de temperaturas y la reimpresión del historial. Cambie la conexión a la nube pura para permitir el control total."
      }
    }
@@ -765,7 +765,7 @@ index f85e11e..6b761c7 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
-index 7f1dc1c..838a924 100644
+index eddc0b8..958ebf7 100644
 --- a/custom_components/bambu_lab/translations/fr.json
 +++ b/custom_components/bambu_lab/translations/fr.json
 @@ -85,8 +85,9 @@
@@ -816,7 +816,7 @@ index 7f1dc1c..838a924 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "L'imprimante a rejeté le code d'accès configuré pour {device}. Cela signifie généralement que le code a été régénéré, par exemple par une réinitialisation d'usine. Lisez le nouveau code d'accès sur l'écran des paramètres réseau de l'imprimante et reconfigurez l'intégration avec celui-ci."
      }
    }
@@ -824,7 +824,7 @@ index 7f1dc1c..838a924 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
-index 1ea8a37..8d170cb 100644
+index 90071fa..ade60c0 100644
 --- a/custom_components/bambu_lab/translations/it.json
 +++ b/custom_components/bambu_lab/translations/it.json
 @@ -85,8 +85,9 @@
@@ -876,7 +876,7 @@ index 1ea8a37..8d170cb 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
-index 5eb84e0..83b384f 100644
+index f8cfc9d..20b3630 100644
 --- a/custom_components/bambu_lab/translations/ko.json
 +++ b/custom_components/bambu_lab/translations/ko.json
 @@ -85,8 +85,9 @@
@@ -927,7 +927,7 @@ index 5eb84e0..83b384f 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "프린터가 {device}에 대해 구성된 액세스 코드를 거부했습니다. 이는 일반적으로 공장 초기화 등을 통해 코드가 재생성되었음을 의미합니다. 프린터의 네트워크 설정 화면에서 새 액세스 코드를 읽고 그것과의 통합을 재구성하십시오."
      }
    }
@@ -935,7 +935,7 @@ index 5eb84e0..83b384f 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
-index 047a153..8c2e99d 100644
+index 029540f..44de649 100644
 --- a/custom_components/bambu_lab/translations/nl.json
 +++ b/custom_components/bambu_lab/translations/nl.json
 @@ -85,8 +85,9 @@
@@ -987,7 +987,7 @@ index 047a153..8c2e99d 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
-index 335ffaf..cd92f62 100644
+index 26db4f2..b1e8a03 100644
 --- a/custom_components/bambu_lab/translations/pl.json
 +++ b/custom_components/bambu_lab/translations/pl.json
 @@ -85,8 +85,9 @@
@@ -1039,7 +1039,7 @@ index 335ffaf..cd92f62 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
-index 8acb9d1..e36b359 100644
+index b1fe95d..255eb0c 100644
 --- a/custom_components/bambu_lab/translations/pt-br.json
 +++ b/custom_components/bambu_lab/translations/pt-br.json
 @@ -85,8 +85,9 @@
@@ -1090,7 +1090,7 @@ index 8acb9d1..e36b359 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "A impressora rejeitou o código de acesso configurado para {device}. Isso geralmente significa que o código foi regenerado, por exemplo, por uma redefinição de fábrica. Leia o novo código de acesso na tela de configurações de rede da impressora e reconfigure a integração com ele."
      }
    }
@@ -1098,7 +1098,7 @@ index 8acb9d1..e36b359 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
-index cc14ec2..ca3fb64 100644
+index 4f518d7..0d9b780 100644
 --- a/custom_components/bambu_lab/translations/pt.json
 +++ b/custom_components/bambu_lab/translations/pt.json
 @@ -85,8 +85,9 @@
@@ -1149,7 +1149,7 @@ index cc14ec2..ca3fb64 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "A impressora rejeitou o código de acesso configurado para {device}. Isso geralmente significa que o código foi regenerado, por exemplo, por uma redefinição de fábrica. Leia o novo código de acesso na tela de configurações de rede da impressora e reconfigure a integração com ele."
      }
    }
@@ -1157,7 +1157,7 @@ index cc14ec2..ca3fb64 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
-index 1d9f9fe..0874642 100644
+index 303202d..9d15fee 100644
 --- a/custom_components/bambu_lab/translations/sk.json
 +++ b/custom_components/bambu_lab/translations/sk.json
 @@ -85,8 +85,9 @@
@@ -1208,7 +1208,7 @@ index 1d9f9fe..0874642 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "Tlačiareň odmietla nakonfigurovaný prístupový kód pre {device}. Zvyčajne to znamená, že kód bol vygenerovaný, napríklad obnovením továrenského nastavenia. Prečítajte si nový prístupový kód na obrazovke sieťových nastavení tlačiarne a prekonfigurujte s ním integráciu."
      }
    }
@@ -1216,7 +1216,7 @@ index 1d9f9fe..0874642 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
-index 93f825b..35a25d1 100644
+index 4a77d14..decba68 100644
 --- a/custom_components/bambu_lab/translations/th.json
 +++ b/custom_components/bambu_lab/translations/th.json
 @@ -85,8 +85,9 @@
@@ -1267,7 +1267,7 @@ index 93f825b..35a25d1 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
+@@ -1151,4 +1155,4 @@
        "description": "เครื่องพิมพ์ปฏิเสธรหัสการเข้าถึงที่กำหนดค่าไว้สำหรับ {device} ซึ่งโดยทั่วไปหมายถึงรหัสถูกสร้างขึ้นใหม่ เช่น โดยการรีเซ็ตเป็นค่าจากโรงงาน อ่านรหัสการเข้าถึงใหม่จากหน้าจอการตั้งค่าเครือข่ายของเครื่องพิมพ์ และกำหนดค่าการรวมใหม่ด้วย"
      }
    }
@@ -1275,7 +1275,7 @@ index 93f825b..35a25d1 100644
 \ No newline at end of file
 +}
 diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
-index 4dbba56..6cd3052 100644
+index 6598161..89a6e69 100644
 --- a/custom_components/bambu_lab/translations/zh-Hans.json
 +++ b/custom_components/bambu_lab/translations/zh-Hans.json
 @@ -85,8 +85,9 @@
@@ -1326,8 +1326,8 @@ index 4dbba56..6cd3052 100644
              }
            }
          }
-@@ -949,4 +953,4 @@
-       "description": "打印机拒绝为 {device} 配置的访问代码。这通常意味着代码已重新生成，例如通过恢复出厂设置。从打印机的网络设置屏幕读取新的访问代码并重新配置与其集成。"
+@@ -1151,4 +1155,4 @@
+       "description": "打印机拒绝了为 {device} 配置的访问码。这通常表示访问码已被重新生成（例如恢复出厂设置后）。请在打印机的网络设置界面查看新的访问码，并用它重新配置集成。"
      }
    }
 -}

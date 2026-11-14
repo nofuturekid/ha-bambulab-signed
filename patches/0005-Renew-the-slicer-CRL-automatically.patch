@@ -1,7 +1,7 @@
-From 4ab0817678742716ad0c296762691229c6bdbbe2 Mon Sep 17 00:00:00 2001
+From a8d2c7cf7a999a661926d950d2c192076b8da093 Mon Sep 17 00:00:00 2001
 From: Thomas Kroll <t.kroll@outlook.com>
 Date: Wed, 21 Oct 2026 20:20:33 +0200
-Subject: [PATCH] Renew the slicer CRL automatically
+Subject: [PATCH 5/5] Renew the slicer CRL automatically
 
 Bambu issues CRLs valid for one month and the printer refuses
 app_cert_install with an expired one, so signed control stopped working
@@ -28,18 +28,18 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 custom_components/bambu_lab/slicer_renewal.py
 
 diff --git a/custom_components/bambu_lab/__init__.py b/custom_components/bambu_lab/__init__.py
-index e0658be..91bd96d 100644
+index 39db6df..ac22631 100644
 --- a/custom_components/bambu_lab/__init__.py
 +++ b/custom_components/bambu_lab/__init__.py
-@@ -26,6 +26,7 @@ from .const import (
-     SERVICE_CALL_EVENT
+@@ -30,6 +30,7 @@ from .const import (
  )
  from .coordinator import BambuDataUpdateCoordinator
+ from .pybambu.utils import normalize_service_target
 +from .slicer_renewal import async_setup_renewal
  from .diagnostics import TO_REDACT
  from .frontend import BambuLabCardRegistration
  from .config_flow import CONFIG_VERSION
-@@ -433,6 +434,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+@@ -451,6 +452,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
      cards = BambuLabCardRegistration(hass)
      await cards.async_register()
  

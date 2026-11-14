@@ -1,7 +1,7 @@
-From 7917a90759d5b4fdd3cf2d055921e486553fde9a Mon Sep 17 00:00:00 2001
+From d69ded916cb64802be8451b2e1b6a8053238e2ec Mon Sep 17 00:00:00 2001
 From: Alexey Cluster <cluster@cluster.wtf>
 Date: Tue, 15 Sep 2026 02:16:32 +0000
-Subject: [PATCH 1/4] MQTT requests signing
+Subject: [PATCH 1/5] MQTT requests signing
 
 Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
 ---
@@ -52,10 +52,10 @@ index 263b047..ca9e454 100644
              BambuLabPauseButton(coordinator, entry),
              BambuLabResumeButton(coordinator, entry),
 diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
-index d0ecd58..26a318c 100644
+index 97a2297..456f11d 100644
 --- a/custom_components/bambu_lab/config_flow.py
 +++ b/custom_components/bambu_lab/config_flow.py
-@@ -39,6 +39,7 @@ CONFIG_VERSION = 2
+@@ -40,6 +40,7 @@ CONFIG_VERSION = 2
  BOOLEAN_SELECTOR = BooleanSelector()
  NUMBER_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.NUMBER))
  TEXT_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
@@ -63,7 +63,7 @@ index d0ecd58..26a318c 100644
  PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
  REGION_LIST = [
      SelectOptionDict(value="AsiaPacific", label="Asia Pacific"),
-@@ -433,6 +434,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -436,6 +437,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                              "usage_hours": float(user_input['usage_hours']),
                              "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                              "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -72,7 +72,7 @@ index d0ecd58..26a318c 100644
                              "force_ip": force_ip,
                      }
  
-@@ -450,6 +453,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -453,6 +456,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -81,7 +81,7 @@ index d0ecd58..26a318c 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -464,6 +469,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -467,6 +472,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -91,7 +91,7 @@ index d0ecd58..26a318c 100644
              }),
              {'collapsed': True},
          )
-@@ -516,6 +524,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -519,6 +527,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                          "usage_hours": float(user_input['usage_hours']),
                          "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                          "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -100,7 +100,7 @@ index d0ecd58..26a318c 100644
                          "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
                  }
  
-@@ -546,6 +556,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -549,6 +559,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -109,7 +109,7 @@ index d0ecd58..26a318c 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -559,6 +571,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -562,6 +574,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -119,7 +119,7 @@ index d0ecd58..26a318c 100644
              }),
              {'collapsed': True},
          )
-@@ -871,6 +886,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -876,6 +891,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                      options["usage_hours"] = float(user_input['usage_hours'])
                      options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                      options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -128,7 +128,7 @@ index d0ecd58..26a318c 100644
                      options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
                      options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
                      options["force_ip"] = force_ip
-@@ -905,6 +922,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -910,6 +927,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
@@ -139,7 +139,7 @@ index d0ecd58..26a318c 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -920,6 +941,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -925,6 +946,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -149,7 +149,7 @@ index d0ecd58..26a318c 100644
              }),
              {'collapsed': True},
          )
-@@ -968,6 +992,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -973,6 +997,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  options["usage_hours"] = float(user_input['usage_hours'])
                  options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                  options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -158,7 +158,7 @@ index d0ecd58..26a318c 100644
                  options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
  
                  title = self._config_entry.data['serial']
-@@ -1001,6 +1027,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1006,6 +1032,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
@@ -169,7 +169,7 @@ index d0ecd58..26a318c 100644
  
          fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
          fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
-@@ -1011,6 +1041,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1016,6 +1046,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -180,7 +180,7 @@ index d0ecd58..26a318c 100644
              {'collapsed': True},
          )
 diff --git a/custom_components/bambu_lab/coordinator.py b/custom_components/bambu_lab/coordinator.py
-index 90acabf..deaa47f 100644
+index ad7dab0..a225a98 100644
 --- a/custom_components/bambu_lab/coordinator.py
 +++ b/custom_components/bambu_lab/coordinator.py
 @@ -3,6 +3,7 @@ from __future__ import annotations
@@ -191,15 +191,15 @@ index 90acabf..deaa47f 100644
  import os
  import re
  import time
-@@ -79,6 +80,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -81,6 +82,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
          config.update(entry.options.items())
          config['user_language'] = hass.config.language
          config['file_cache_path'] = self.get_file_cache_directory(config['serial'])
 +        config['device_cert_path'] = hass.config.path(f".storage/bambu_lab/certs/{config['serial']}.pem")
          self.client = BambuClient(config)
-             
-         self._updatedDevice = False
-@@ -273,7 +275,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
+ 
+         # Account level MakerWorld stats. None when the entry has no cloud
+@@ -309,7 +311,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
              write_action = False
  
          if write_action:
@@ -209,10 +209,10 @@ index 90acabf..deaa47f 100644
                  self._report_encryption_enabled_issue(True)
                  return False
 diff --git a/custom_components/bambu_lab/definitions.py b/custom_components/bambu_lab/definitions.py
-index dd94893..bea4df6 100644
+index 1525c04..bdb080d 100644
 --- a/custom_components/bambu_lab/definitions.py
 +++ b/custom_components/bambu_lab/definitions.py
-@@ -204,7 +204,7 @@ PRINTER_BINARY_SENSORS: tuple[BambuLabBinarySensorEntityDescription, ...] = (
+@@ -231,7 +231,7 @@ PRINTER_BINARY_SENSORS: tuple[BambuLabBinarySensorEntityDescription, ...] = (
          device_class=BinarySensorDeviceClass.RUNNING,
          entity_category=EntityCategory.DIAGNOSTIC,
          is_on_fn=lambda self: self.coordinator.get_model().supports_feature(Features.MQTT_ENCRYPTION_FIRMWARE)
@@ -222,10 +222,10 @@ index dd94893..bea4df6 100644
      BambuLabBinarySensorEntityDescription(
          key="mqtt_encryption",
 diff --git a/custom_components/bambu_lab/fan.py b/custom_components/bambu_lab/fan.py
-index 0a35c91..b1a98c6 100644
+index efb22be..ba29b5e 100644
 --- a/custom_components/bambu_lab/fan.py
 +++ b/custom_components/bambu_lab/fan.py
-@@ -69,7 +69,7 @@ async def async_setup_entry(
+@@ -70,7 +70,7 @@ async def async_setup_entry(
      
      LOGGER.debug("FAN::async_setup_entry")
      # Fans work in hybrid mode so we don't need to block entities on that.
@@ -248,7 +248,7 @@ index 6898d2c..03dc8cd 100644
              if description.exists_fn(coordinator):
                  async_add_entities([BambuLabNumber(coordinator, description, entry)])
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index 3143c46..3395ea3 100644
+index 5c0927c..a4e31fd 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
 @@ -32,6 +32,15 @@ from .commands import (
@@ -267,7 +267,7 @@ index 3143c46..3395ea3 100644
  from .utils import safe_json_loads
  
  class WatchdogThread(threading.Thread):
-@@ -386,6 +395,16 @@ class BambuClient:
+@@ -403,6 +412,16 @@ class BambuClient:
          self._tcp6000_media_supported = None
          self._tcp6000_media_storages = []
          self._tcp6000_media_probe_time = 0.0
@@ -284,7 +284,7 @@ index 3143c46..3395ea3 100644
  
          self._connected = False
          self._device_confirmed = False
-@@ -426,6 +445,57 @@ class BambuClient:
+@@ -443,6 +462,57 @@ class BambuClient:
          """Return if connected to server"""
          return self._connected
  
@@ -342,7 +342,7 @@ index 3143c46..3395ea3 100644
      @property
      def camera_enabled(self):
          return self._enable_camera
-@@ -546,6 +616,7 @@ class BambuClient:
+@@ -563,6 +633,7 @@ class BambuClient:
                     properties: mqtt.Properties | None = None, ):
          """Handle connection"""
          LOGGER.debug(f"On Connect: Connected to printer: {result_code}")
@@ -350,7 +350,7 @@ index 3143c46..3395ea3 100644
          self._on_connect()
  
      def start_camera(self):
-@@ -685,6 +756,10 @@ class BambuClient:
+@@ -699,6 +770,10 @@ class BambuClient:
                      self._device.info_update(data=json_data.get("info"))
                  elif json_data.get("system") and json_data.get("system").get("command"):
                      self._device.observe_system_command(data=json_data.get("system"))
@@ -361,7 +361,7 @@ index 3143c46..3395ea3 100644
  
  
          except Exception as e:
-@@ -698,6 +773,13 @@ class BambuClient:
+@@ -712,6 +787,13 @@ class BambuClient:
  
      def publish(self, msg):
          """Publish a custom message"""
@@ -375,7 +375,7 @@ index 3143c46..3395ea3 100644
          result = self.client.publish(f"device/{self._serial}/request", json.dumps(msg))
          status = result.rc
          if status == 0:
-@@ -780,6 +862,7 @@ class BambuClient:
+@@ -794,6 +876,7 @@ class BambuClient:
                             properties: mqtt.Properties | None = None, ):
  
              LOGGER.debug(f"try_on_connect: Connected to printer: {result_code}")
@@ -383,7 +383,7 @@ index 3143c46..3395ea3 100644
              self.subscribe_and_request_info()
  
          def try_on_disconnect(client_: mqtt.Client,
-@@ -823,6 +906,10 @@ class BambuClient:
+@@ -837,6 +920,10 @@ class BambuClient:
              if (json_data.get('print', {}).get('command', '') == 'push_status') and (json_data.get('print', {}).get('msg', 0) == 0):
                  self._device.print_update(data=json_data.get("print"))
                  self.received_push = True
@@ -496,10 +496,10 @@ index 0000000..bd5f8af
 +        LOGGER.error(f"Failed to parse printer device cert public key: {type(e)} {e}")
 +        return None
 diff --git a/custom_components/bambu_lab/pybambu/models.py b/custom_components/bambu_lab/pybambu/models.py
-index bd99677..817e15f 100644
+index 8a27c4e..2b13675 100644
 --- a/custom_components/bambu_lab/pybambu/models.py
 +++ b/custom_components/bambu_lab/pybambu/models.py
-@@ -261,7 +261,7 @@ class Device:
+@@ -297,7 +297,7 @@ class Device:
              return True
          elif feature == Features.PROMPT_SOUND:
              if model in (a1_printers | a2_printers | h2_printers | p2_printers | x2_printers):
@@ -508,16 +508,16 @@ index bd99677..817e15f 100644
              return False
          elif feature == Features.AMS_SWITCH_COMMAND:
              if model in p1_printers:
-@@ -4119,7 +4119,7 @@ class PrintFun:
-         self._value = data.get("fun", str(self._value))
-         self._int_value = int(self._value, 16) if self._value else 0
-         self._encryption_enabled = (self._int_value & Print_Fun_Values.MQTT_SIGNATURE_REQUIRED) != 0
+@@ -4904,7 +4904,7 @@ class PrintFun:
+         else:
+             self._encryption_enabled = self._flag3_authorization_control
+ 
 -        if self._encryption_enabled:
 +        if self._encryption_enabled and not self._client.mqtt_signing_enabled:
              if not self._fired_encryption_enabled_event:
                  self._fired_encryption_enabled_event = True
                  self._client.callback("event_printer_mqtt_encryption_enabled")
-@@ -4129,6 +4129,11 @@ class PrintFun:
+@@ -4914,6 +4914,11 @@ class PrintFun:
      @property
      def mqtt_signature_required(self) -> bool:
          return self._encryption_enabled
@@ -677,7 +677,7 @@ index 04f4429..cf198c5 100644
                  async_add_entities([BambuLabPromptSoundSwitch(coordinator, entry)])
      
 diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
-index 983c2fd..f413f63 100644
+index 4296159..250d4da 100644
 --- a/custom_components/bambu_lab/translations/ca.json
 +++ b/custom_components/bambu_lab/translations/ca.json
 @@ -84,7 +84,9 @@
@@ -725,7 +725,7 @@ index 983c2fd..f413f63 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
-index 1e9350b..3946945 100644
+index ce3363f..864a41c 100644
 --- a/custom_components/bambu_lab/translations/cs.json
 +++ b/custom_components/bambu_lab/translations/cs.json
 @@ -84,7 +84,9 @@
@@ -773,7 +773,7 @@ index 1e9350b..3946945 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
-index 7475071..d4e1a59 100644
+index c7dc80d..7eab9ad 100644
 --- a/custom_components/bambu_lab/translations/da.json
 +++ b/custom_components/bambu_lab/translations/da.json
 @@ -84,7 +84,9 @@
@@ -821,7 +821,7 @@ index 7475071..d4e1a59 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
-index 3ca4ffc..f4f824f 100644
+index 61b517d..618919b 100644
 --- a/custom_components/bambu_lab/translations/de.json
 +++ b/custom_components/bambu_lab/translations/de.json
 @@ -84,7 +84,9 @@
@@ -869,7 +869,7 @@ index 3ca4ffc..f4f824f 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
-index 5900136..f831271 100644
+index 3f56f6d..1783651 100644
 --- a/custom_components/bambu_lab/translations/el.json
 +++ b/custom_components/bambu_lab/translations/el.json
 @@ -84,7 +84,9 @@
@@ -917,7 +917,7 @@ index 5900136..f831271 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
-index 269e954..b65d9f2 100644
+index 141a7a6..682ab21 100644
 --- a/custom_components/bambu_lab/translations/en.json
 +++ b/custom_components/bambu_lab/translations/en.json
 @@ -84,7 +84,9 @@
@@ -965,7 +965,7 @@ index 269e954..b65d9f2 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
-index dc9a3e9..f85e11e 100644
+index 0102069..76e6da5 100644
 --- a/custom_components/bambu_lab/translations/es.json
 +++ b/custom_components/bambu_lab/translations/es.json
 @@ -84,7 +84,9 @@
@@ -1013,7 +1013,7 @@ index dc9a3e9..f85e11e 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
-index f8e56c7..7f1dc1c 100644
+index 545206c..eddc0b8 100644
 --- a/custom_components/bambu_lab/translations/fr.json
 +++ b/custom_components/bambu_lab/translations/fr.json
 @@ -84,7 +84,9 @@
@@ -1061,7 +1061,7 @@ index f8e56c7..7f1dc1c 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
-index 48d0392..1ea8a37 100644
+index 844dbe0..90071fa 100644
 --- a/custom_components/bambu_lab/translations/it.json
 +++ b/custom_components/bambu_lab/translations/it.json
 @@ -84,7 +84,9 @@
@@ -1109,7 +1109,7 @@ index 48d0392..1ea8a37 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
-index 64eb259..5eb84e0 100644
+index c152805..f8cfc9d 100644
 --- a/custom_components/bambu_lab/translations/ko.json
 +++ b/custom_components/bambu_lab/translations/ko.json
 @@ -84,7 +84,9 @@
@@ -1157,7 +1157,7 @@ index 64eb259..5eb84e0 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
-index 9cb3c26..047a153 100644
+index 1d481c8..029540f 100644
 --- a/custom_components/bambu_lab/translations/nl.json
 +++ b/custom_components/bambu_lab/translations/nl.json
 @@ -84,7 +84,9 @@
@@ -1205,7 +1205,7 @@ index 9cb3c26..047a153 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
-index c2fdca3..335ffaf 100644
+index 8bb16bb..26db4f2 100644
 --- a/custom_components/bambu_lab/translations/pl.json
 +++ b/custom_components/bambu_lab/translations/pl.json
 @@ -84,7 +84,9 @@
@@ -1253,7 +1253,7 @@ index c2fdca3..335ffaf 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
-index e760dbe..8acb9d1 100644
+index e3f244c..b1fe95d 100644
 --- a/custom_components/bambu_lab/translations/pt-br.json
 +++ b/custom_components/bambu_lab/translations/pt-br.json
 @@ -84,7 +84,9 @@
@@ -1301,7 +1301,7 @@ index e760dbe..8acb9d1 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
-index d368e9c..cc14ec2 100644
+index 19ba025..4f518d7 100644
 --- a/custom_components/bambu_lab/translations/pt.json
 +++ b/custom_components/bambu_lab/translations/pt.json
 @@ -84,7 +84,9 @@
@@ -1349,7 +1349,7 @@ index d368e9c..cc14ec2 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
-index bcb3e19..1d9f9fe 100644
+index d7552a8..303202d 100644
 --- a/custom_components/bambu_lab/translations/sk.json
 +++ b/custom_components/bambu_lab/translations/sk.json
 @@ -84,7 +84,9 @@
@@ -1397,7 +1397,7 @@ index bcb3e19..1d9f9fe 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
-index d07ca9c..93f825b 100644
+index 1085c1c..4a77d14 100644
 --- a/custom_components/bambu_lab/translations/th.json
 +++ b/custom_components/bambu_lab/translations/th.json
 @@ -84,7 +84,9 @@
@@ -1445,7 +1445,7 @@ index d07ca9c..93f825b 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
-index 728bb7d..4dbba56 100644
+index 594baca..6598161 100644
 --- a/custom_components/bambu_lab/translations/zh-Hans.json
 +++ b/custom_components/bambu_lab/translations/zh-Hans.json
 @@ -84,7 +84,9 @@
