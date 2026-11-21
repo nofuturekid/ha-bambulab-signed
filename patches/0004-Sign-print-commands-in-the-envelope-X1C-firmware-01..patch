@@ -1,4 +1,4 @@
-From 97f265c29e38890811196caa75c7c10cd066997c Mon Sep 17 00:00:00 2001
+From 9c12aeffa028c2ac89282ce2884941b35ddcc512 Mon Sep 17 00:00:00 2001
 From: Thomas Kroll <t.kroll@outlook.com>
 Date: Wed, 21 Oct 2026 20:03:20 +0200
 Subject: [PATCH 4/6] Sign print commands in the envelope X1C firmware 01.12

@@ -1,0 +1,74 @@
+From aec14334640fad1bd47c74c1fe54645abfa17d73 Mon Sep 17 00:00:00 2001
+From: Thomas Kroll <t.kroll@outlook.com>
+Date: Sat, 14 Nov 2026 09:49:49 +0100
+Subject: [PATCH 6/6] Model the signing state in upstream's PrintFun and H3C
+ tests
+
+PrintFun only raises event_printer_mqtt_encryption_enabled, and the
+prompt sound is only hidden, when the client cannot sign commands.
+Upstream's tests use a bare MagicMock client, whose
+mqtt_signing_enabled attribute is truthy, so they saw a client that
+can sign. Pin the stock state (no signing) and cover the signed case.
+---
+ tests/pybambu/test_h3c.py       | 11 +++++++++++
+ tests/pybambu/test_print_fun.py | 11 +++++++++++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/tests/pybambu/test_h3c.py b/tests/pybambu/test_h3c.py
+index 2117248..80e3f26 100644
+--- a/tests/pybambu/test_h3c.py
++++ b/tests/pybambu/test_h3c.py
+@@ -15,6 +15,8 @@ class TestH3C(unittest.TestCase):
+     def setUp(self):
+         self.payload = json.loads(Path(__file__).with_name("H3C_AMS3H.json").read_text())
+         self.client = MagicMock()
++        # Stock client: no signing credentials configured.
++        self.client.mqtt_signing_enabled = False
+         self.client._device_type = Printers.H3C
+         self.client.slicer_settings.custom_filaments = {}
+         self.device = Device(self.client)
+@@ -63,6 +65,15 @@ class TestH3C(unittest.TestCase):
+         self.device.print_fun.print_update({"fun": "20000000"})
+         self.assertFalse(self.device.supports_feature(Features.PROMPT_SOUND))
+ 
++    def test_prompt_sound_stays_available_when_commands_can_be_signed(self):
++        # With signing configured the printer accepts the command, so the
++        # prompt sound stays usable although signatures are required.
++        self.client.mqtt_signing_enabled = True
++        self.load()
++        self.device.print_fun.print_update({"fun": "20000000"})
++        self.assertTrue(self.device.print_fun.mqtt_signature_required)
++        self.assertTrue(self.device.supports_feature(Features.PROMPT_SOUND))
++
+     def test_heatbed_light_tracks_commands_despite_error_response(self):
+         self.load()
+         self.assertTrue(self.device.supports_feature(Features.HEATBED_LIGHT))
+diff --git a/tests/pybambu/test_print_fun.py b/tests/pybambu/test_print_fun.py
+index d318bcb..b0a741e 100644
+--- a/tests/pybambu/test_print_fun.py
++++ b/tests/pybambu/test_print_fun.py
+@@ -7,6 +7,8 @@ from pybambu.models import PrintFun
+ class TestPrintFunSignatureDetection(unittest.TestCase):
+     def setUp(self):
+         self.client = MagicMock()
++        # Stock client: no signing credentials configured.
++        self.client.mqtt_signing_enabled = False
+         self.fun = PrintFun(client=self.client)
+ 
+     def test_fun_bit29_set_means_secured(self):
+@@ -81,6 +83,15 @@ class TestPrintFunSignatureDetection(unittest.TestCase):
+         self.fun.print_update({"fun": "", "flag3": 65552})
+         self.client.callback.assert_called_once_with("event_printer_mqtt_encryption_enabled")
+ 
++    def test_no_encryption_event_when_commands_can_be_signed(self):
++        # With signing configured the control entities stay usable, so
++        # Home Assistant must not be told that control is blocked.
++        self.client.mqtt_signing_enabled = True
++        self.fun.print_update({"fun": "", "flag3": 65552})
++        self.fun.print_update({"fun": "20000000"})
++        self.assertTrue(self.fun.mqtt_signature_required)
++        self.client.callback.assert_not_called()
++
+     def test_no_data_means_not_secured(self):
+         self.fun.print_update({})
+         self.assertFalse(self.fun.mqtt_signature_required)

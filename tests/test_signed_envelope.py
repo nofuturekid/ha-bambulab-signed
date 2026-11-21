@@ -158,6 +158,12 @@ def test_unsignable_command_is_dropped_not_sent_unsigned(setup):
     )
 
 
+def test_command_that_fails_to_sign_is_dropped_not_sent_unsigned(setup):
+    # A param that is not text makes encryption raise; the command must
+    # still never reach the printer unsigned.
+    assert _sign(setup, _gcode(12345)) is None
+
+
 def test_non_print_messages_pass_through_unchanged(setup):
     msg = {"security": {"sequence_id": "0", "command": "app_cert_install"}}
     assert _sign(setup, msg) is msg
