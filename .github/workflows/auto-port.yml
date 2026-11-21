@@ -1,0 +1,250 @@
+name: Auto-port
+
+# When the daily build fails because the patches no longer apply to a new
+# upstream release, port them with Claude Code, review the port with a second,
+# independent Claude run, and merge and release it if every gate holds.
+# Gates and permissions are described in the README ("Automatic ports").
+#
+# Manual run: workflow_dispatch with an upstream tag. `force` runs the porter
+# even when the patches still apply; such a run never merges.
+on:
+  # Reacts only to failed runs of our own release workflow and checks out
+  # main, never the triggering run's code or artifacts.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [Build release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream release tag, e.g. v2.4.1
+        required: true
+        type: string
+      force:
+        description: Port even if the patches apply (dry run, never merges)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: auto-port
+
+jobs:
+  detect:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      port: ${{ steps.detect.outputs.port }}
+      tag: ${{ steps.detect.outputs.tag }}
+      prev: ${{ steps.detect.outputs.prev }}
+      base: ${{ steps.detect.outputs.base }}
+      dry_run: ${{ steps.detect.outputs.dry_run }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Detect
+        id: detect
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          base=$(git rev-parse HEAD)
+          # Tags come from other repositories or from the dispatch form:
+          # accept only plain versions.
+          tag=${INPUT_TAG:-$(gh api repos/greghesp/ha-bambulab/releases/latest --jq .tag_name)}
+          last=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          prev=${last%.*}
+          for t in "$tag" "$prev"; do
+            if ! [[ $t =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Unexpected tag: $t" >&2
+              exit 1
+            fi
+          done
+          dry_run=false
+          [ "$FORCE" = true ] && dry_run=true
+          {
+            echo "tag=$tag"
+            echo "prev=$prev"
+            echo "base=$base"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+
+          # One attempt per upstream release: an open failure issue or an
+          # existing auto-port branch means a port ran already.
+          title="Auto-port failed on upstream $tag"
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] &&
+            gh issue list -R "$GITHUB_REPOSITORY" --state open --json title --jq '.[].title' | grep -qFx "$title"; then
+            echo "An open issue \"$title\" exists; not porting again."
+            echo "port=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/branches/auto-port/$tag" --silent 2>/dev/null; then
+            echo "Branch auto-port/$tag exists; not porting again."
+            echo "port=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The same check as build.sh: do the patches apply? (git only, no
+          # upstream code runs here)
+          git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" https://github.com/greghesp/ha-bambulab.git "$RUNNER_TEMP/up"
+          if git -C "$RUNNER_TEMP/up" -c user.name=build -c user.email=build@localhost am -q --3way "$PWD"/patches/*.patch >/dev/null 2>&1; then
+            if [ "$dry_run" != true ]; then
+              echo "The patches apply to $tag: nothing to port."
+              echo "port=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "The patches apply to $tag; porting anyway (dry run)."
+          else
+            echo "The patches do not apply to $tag: porting."
+          fi
+          echo "port=true" >> "$GITHUB_OUTPUT"
+
+  round1:
+    needs: detect
+    if: needs.detect.outputs.port == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/auto-port-round.yml
+    with:
+      tag: ${{ needs.detect.outputs.tag }}
+      prev: ${{ needs.detect.outputs.prev }}
+      round: 1
+      base: ${{ needs.detect.outputs.base }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  # The single fix round: the porter gets round 1's findings once.
+  round2:
+    needs: [detect, round1]
+    if: >-
+      always() && needs.round1.outputs.changed == 'true' &&
+      needs.round1.outputs.ok != 'true' && needs.round1.outputs.pr != ''
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/auto-port-round.yml
+    with:
+      tag: ${{ needs.detect.outputs.tag }}
+      prev: ${{ needs.detect.outputs.prev }}
+      round: 2
+      base: ${{ needs.detect.outputs.base }}
+      head: ${{ needs.round1.outputs.head }}
+      pr: ${{ needs.round1.outputs.pr }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  # Fast-forward main to the gated commit (signed by GitHub, as the publish
+  # job created it through the API), then start the release workflow. Pushes
+  # with the workflow token do not trigger workflows, so it is dispatched.
+  land:
+    needs: [detect, round1, round2]
+    if: >-
+      always() && needs.detect.outputs.dry_run != 'true' &&
+      (needs.round1.outputs.ok == 'true' || needs.round2.outputs.ok == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.detect.outputs.tag }}
+      BASE: ${{ needs.detect.outputs.base }}
+      HEAD: ${{ needs.round2.outputs.ok == 'true' && needs.round2.outputs.head || needs.round1.outputs.head }}
+      PR: ${{ needs.round1.outputs.pr }}
+    steps:
+      - name: Fast-forward main
+        run: |
+          set -euo pipefail
+          [[ $HEAD =~ ^[0-9a-f]{40}$ && $PR =~ ^[0-9]+$ ]]
+          # Nothing moved since the gate.
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '[.state, .head.sha] | join(" ")')
+          [ "$pr" = "open $HEAD" ] || { echo "PR #$PR is '$pr'" >&2; exit 1; }
+          main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          [ "$main" = "$BASE" ] || { echo "main moved to $main" >&2; exit 1; }
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$HEAD" -F force=false --silent
+          echo "main is now $HEAD"
+      - name: Close the pull request
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .merged)" = true ] && break
+            sleep 5
+          done
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .merged)" != true ]; then
+            gh pr close -R "$GITHUB_REPOSITORY" "$PR" --comment "Landed on main as $HEAD (fast-forward)."
+          fi
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/auto-port/$TAG" --silent || true
+      - name: Start the release
+        run: gh workflow run release.yml -R "$GITHUB_REPOSITORY" --ref main
+
+  report:
+    needs: [detect, round1, round2, land]
+    if: always() && needs.detect.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.detect.outputs.tag }}
+      DETECT: ${{ needs.detect.result }}
+      PORT: ${{ needs.detect.outputs.port }}
+      LAND: ${{ needs.land.result }}
+      R1_OK: ${{ needs.round1.outputs.ok }}
+      R1_CHANGED: ${{ needs.round1.outputs.changed }}
+      R1_FAILED: ${{ needs.round1.outputs.failed }}
+      R1_RESULT: ${{ needs.round1.result }}
+      R2_OK: ${{ needs.round2.outputs.ok }}
+      R2_FAILED: ${{ needs.round2.outputs.failed }}
+      R2_RESULT: ${{ needs.round2.result }}
+      PR: ${{ needs.round1.outputs.pr }}
+    steps:
+      - name: Open or update the failure issue
+        run: |
+          if [ "$DETECT" != success ]; then
+            failed="detect: the upstream release or the patch check could not be determined"
+          elif [ "$PORT" != true ]; then
+            echo "Nothing to port."; exit 0
+          elif [ "$LAND" = success ]; then
+            echo "Landed and release started."; exit 0
+          elif [ "$LAND" = failure ]; then
+            failed="land: fast-forwarding main or starting the release failed"
+          elif [ "$R1_OK" = true ] || [ "$R2_OK" = true ]; then
+            echo "Dry run passed every gate; not merged."; exit 0
+          elif [ "$R1_CHANGED" = false ] && [ -z "$R1_FAILED" ]; then
+            echo "The port reproduced the current patch set: nothing to merge."; exit 0
+          elif [ "$R2_RESULT" != skipped ]; then
+            failed=${R2_FAILED:-"round 2: $R2_RESULT"}
+          else
+            failed=${R1_FAILED:-"round 1: $R1_RESULT"}
+          fi
+          title="Auto-port failed on upstream ${TAG:-(unknown)}"
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "Failing step: $failed"
+            echo
+            echo "Run: $run"
+            [ -z "$PR" ] || echo "Pull request: #$PR"
+            echo
+            echo "Nothing was merged or released; the previous release stays current. The auto-port does not retry"
+            echo "this upstream release while this issue is open or the branch auto-port/$TAG exists."
+          } >body.md
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --json number,title \
+            --jq '.[] | "\(.number)\t\(.title)"' | awk -F'\t' -v t="$title" '$2 == t { print $1; exit }')
+          if [ -n "$num" ]; then
+            gh issue comment -R "$GITHUB_REPOSITORY" "$num" --body-file body.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --assignee nofuturekid --body-file body.md
+          fi
+          echo "$failed"
+          exit 1

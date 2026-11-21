@@ -1,0 +1,83 @@
+name: PR CI
+
+# Builds and tests a change before it reaches main: build.sh (patches apply,
+# upstream tests/pybambu, translation parity, tests/) and the mutation check
+# (scripts/mutate.sh). Runs on pull requests and, called from the auto-port
+# workflow, on the exact commit the auto-port gate would merge.
+#
+# Read-only: no secrets, contents: read. Upstream code and its PyPI test
+# dependencies run here, as in release.yml's build job.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to test
+        type: string
+        required: true
+      tag:
+        description: Upstream release to build on
+        type: string
+        required: true
+      report_name:
+        description: Artifact name for the mutation report
+        type: string
+        required: true
+    outputs:
+      sha:
+        description: The commit that was tested
+        value: ${{ jobs.ci.outputs.sha }}
+
+permissions: {}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Upstream release
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          # A pull request is built on the release main would build next.
+          up=${TAG:-$(gh api repos/greghesp/ha-bambulab/releases/latest --jq .tag_name)}
+          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected upstream tag: $up" >&2
+            exit 1
+          fi
+          echo "tag=$up" >> "$GITHUB_OUTPUT"
+      - name: Install test dependencies
+        env:
+          UP: ${{ steps.tag.outputs.tag }}
+        run: pip install -q -r "https://raw.githubusercontent.com/greghesp/ha-bambulab/$UP/tests/requirements.txt" cryptography
+      - name: Build and test
+        env:
+          UP: ${{ steps.tag.outputs.tag }}
+        run: ./build.sh "$UP" 0 dist
+      - name: Mutation check
+        env:
+          UP: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -o pipefail
+          scripts/mutate.sh "$UP" | tee mutation-report.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.report_name || 'mutation-report' }}
+          path: mutation-report.txt
+          if-no-files-found: ignore

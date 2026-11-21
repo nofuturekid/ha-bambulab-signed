@@ -1,0 +1,503 @@
+name: Auto-port round
+
+# One round of the auto-port (see auto-port.yml): Claude ports the patch
+# series, a job without Claude commits the result and opens the pull request,
+# PR CI tests that exact commit, a second Claude run reviews it with a fresh
+# context, and the gate decides. Round 2 is the single fix round: the porter
+# gets round 1's review findings and gate results once.
+#
+# The Claude jobs (port, review) have a read-only token and only the
+# CLAUDE_CODE_OAUTH_TOKEN secret. They cannot push, comment or release; their
+# output is data that the publish and gate jobs check.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      prev:
+        description: Upstream release the current patches are built on
+        type: string
+        required: true
+      round:
+        type: number
+        required: true
+      base:
+        description: main when the port started
+        type: string
+        required: true
+      head:
+        description: "Round 2: the pull request head to fix"
+        type: string
+        default: ""
+      pr:
+        description: "Round 2: the pull request number"
+        type: string
+        default: ""
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+    outputs:
+      changed:
+        value: ${{ jobs.summary.outputs.changed }}
+      pr:
+        value: ${{ jobs.summary.outputs.pr }}
+      head:
+        value: ${{ jobs.summary.outputs.head }}
+      ok:
+        value: ${{ jobs.summary.outputs.ok }}
+      failed:
+        value: ${{ jobs.summary.outputs.failed }}
+
+permissions: {}
+
+env:
+  TAG: ${{ inputs.tag }}
+  PREV: ${{ inputs.prev }}
+  ROUND: ${{ inputs.round }}
+
+jobs:
+  port:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      # Keep the OAuth token out of the commands Claude runs (upstream code).
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base }}
+          persist-credentials: false
+      - name: Start from the pull request's patches
+        if: inputs.round == 2
+        env:
+          HEAD_SHA: ${{ inputs.head }}
+        run: |
+          git fetch -q origin "$HEAD_SHA"
+          git checkout "$HEAD_SHA" -- patches
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.round == 2
+        with:
+          name: findings-r1
+          path: _port/findings
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Prepare upstream
+        run: |
+          git clone -q --filter=blob:none https://github.com/greghesp/ha-bambulab.git _port/upstream
+          git -C _port/upstream remote add clusterm https://github.com/ClusterM/ha-bambulab.git
+          git -C _port/upstream fetch -q clusterm mqtt_signing || echo "ClusterM mqtt_signing not available"
+          pip install -q -r "https://raw.githubusercontent.com/greghesp/ha-bambulab/$TAG/tests/requirements.txt" cryptography
+      - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        id: claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            You port the patch series of nofuturekid/ha-bambulab-signed onto upstream greghesp/ha-bambulab ${{ inputs.tag }}.
+            The current patches/ are built on ${{ inputs.prev }}. This is round ${{ inputs.round }} of at most 2.
+            No human reviews your work before it is merged and released to users: an independent reviewer and
+            hard gates do. Be exact and say what you are unsure about.
+
+            Set up for you:
+            - `.` is this repository (patches/, scripts/, tests/, build.sh). README.md explains the patches.
+            - `_port/upstream` is greghesp/ha-bambulab with history and tags, plus remote `clusterm`
+              (ClusterM/ha-bambulab, branch `clusterm/mqtt_signing`). patches/clusterm-mqtt_signing.sha is the
+              ClusterM commit patches 0001-0003 come from.
+            - Python with upstream's test requirements is installed.
+            - Round 2 only: `_port/findings/` holds the review and gate results for the pull request whose patches
+              are now in patches/. Address every finding; where you disagree, explain why in the PR body.
+              You get this one fix round only.
+
+            Steps:
+            1. `scripts/rebase-series.sh ${{ inputs.tag }} _port/upstream`. Exit 2 means a patch conflicts and
+               `git am` stopped in `_port/upstream`. Resolve it there: understand what upstream changed
+               (`git log`/`git diff ${{ inputs.prev }} ${{ inputs.tag }}`) and what the patch does, then edit
+               the files or use a resolver from scripts/port/ (resolve_keep_both.py, resolve_replace_base.py;
+               scripts/port/v2.4.1/ holds the version-specific resolutions of the v2.4.1 port as worked
+               examples, do not run them on other versions). `git add`, `git am --continue`, repeat. Fold any
+               further change into the patch it belongs to (e.g. `git commit --fixup` and
+               `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash ${{ inputs.tag }}`); keep the patch count
+               and subjects unless a change needs a new patch.
+            2. Review ClusterM's branch as a reference: what changed on `clusterm/mqtt_signing` since the pinned
+               commit, and how ClusterM resolved the same upstream changes. Adopt a change only if it keeps the
+               behaviour below; then update patches/clusterm-mqtt_signing.sha to the commit you followed.
+            3. `scripts/export-series.sh ${{ inputs.tag }} _port/upstream` regenerates patches/.
+            4. `./build.sh ${{ inputs.tag }} 0 _port/dist` must pass (upstream tests, translation parity, tests/).
+            5. `scripts/mutate.sh ${{ inputs.tag }}` must report every mutation as killed.
+            6. Write `_port/pr-body.md` (Markdown, English): what upstream changed between ${{ inputs.prev }} and
+               ${{ inputs.tag }} that touches the patched code; for each patch how it was ported (applied
+               cleanly, or the conflict and its resolution); ClusterM: what changed and what you adopted; test
+               counts from build.sh and the mutation summary line; anything you are unsure about.
+
+            Behaviour that must survive the port:
+            - Every `print` payload sent to the printer is signed, including any new command upstream added.
+              Find every path that publishes to the printer's request topic, not only `BambuClient.publish()`.
+            - The signed text is compact JSON with sorted keys (`separators=(",", ":")`, `sort_keys=True`), and
+              exactly those bytes are sent.
+            - `*_enc` fields replace the plaintext `url`/`param`; the plaintext is not sent.
+            - Sequence ids come from the in-memory counter.
+            - A message that cannot be signed (no key, no device certificate, any exception) is dropped and
+              logged, never sent unsigned.
+            - `security.app_cert_install` is sent on connect.
+            - The CRL renewal (patch 0005) keeps all its checks.
+
+            Rules:
+            - Change only patches/. The gate rejects the pull request if anything else differs from main, and
+              always if tests/test_signed_envelope.py or scripts/mutations.txt change. If a fix outside patches/
+              seems necessary, stop and report status "failed" with the reason.
+            - Never weaken or delete a test (ours or upstream's) to get a green build.
+            - If the series applies cleanly and only patch headers change, still run steps 4 and 5 and report.
+            - Finish with status "ported" only if steps 3-6 succeeded; otherwise "failed".
+          claude_args: |
+            --model opus
+            --max-turns 200
+            --permission-mode acceptEdits
+            --allowedTools "Bash(git:*),Bash(cd:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(sed:*),Bash(diff:*),Bash(wc:*),Bash(find:*),Bash(sort:*),Bash(xxd:*),Bash(truncate:*),Bash(mkdir:*),Bash(cp:*),Bash(rm:*),Bash(python3:*),Bash(./build.sh:*),Bash(scripts/rebase-series.sh:*),Bash(scripts/export-series.sh:*),Bash(scripts/mutate.sh:*)"
+            --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["ported","failed"]},"summary":{"type":"string"}},"required":["status","summary"],"additionalProperties":false}'
+      - name: Collect the porter's output
+        env:
+          OUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          status=$(jq -r '.status // empty' <<<"$OUT" || true)
+          echo "Porter status: ${status:-none}"
+          jq -r '.summary // empty' <<<"$OUT" || true
+          [ "$status" = ported ] || exit 1
+          [ -s _port/pr-body.md ] || { echo "no _port/pr-body.md" >&2; exit 1; }
+          mkdir -p _port/out/patches
+          cp patches/* _port/out/patches/
+          cp _port/pr-body.md _port/out/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: port-r${{ inputs.round }}
+          path: _port/out/
+          if-no-files-found: error
+
+  publish:
+    needs: port
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+      head: ${{ steps.commit.outputs.head }}
+      pr: ${{ steps.pr.outputs.pr }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: auto-port/${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: port-r${{ inputs.round }}
+          path: _in
+      - name: Commit through the API
+        id: commit
+        env:
+          BASE: ${{ inputs.base }}
+          HEAD_SHA: ${{ inputs.head }}
+        run: |
+          if [ "$ROUND" = 1 ]; then
+            parent=$BASE fork=.
+          else
+            parent=$HEAD_SHA fork=_parent
+            git fetch -q origin "$parent"
+            mkdir _parent && git archive "$parent" patches | tar -x -C _parent
+          fi
+          if [ "$ROUND" = 1 ]; then
+            msg="Port patches onto upstream $TAG"
+          else
+            msg="Address review findings for the $TAG port"
+          fi
+          msg=$(printf '%s\n\nAutomated port: %s\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n' \
+            "$msg" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          IN_DIR=_in FORK=$fork PARENT=$parent MESSAGE=$msg python3 -I scripts/auto-port/publish.py
+      - name: Open or update the pull request
+        id: pr
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          PR: ${{ inputs.pr }}
+        run: |
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ "$ROUND" = 1 ]; then
+            {
+              echo "Automated port onto upstream [$TAG](https://github.com/greghesp/ha-bambulab/releases/tag/$TAG) (run: $run)."
+              echo "It is merged and released only if PR CI passes on this commit, the independent review says MERGE,"
+              echo "\`tests/test_signed_envelope.py\` and \`scripts/mutations.txt\` are unchanged, nothing outside \`patches/\` changed"
+              echo "and every mutation is killed. See \"Automatic ports\" in the README."
+              echo
+              echo "---"
+              echo
+              cat _in/pr-body.md
+            } >body.md
+            gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+              --title "Port patches onto upstream $TAG" --body-file body.md
+            pr=$(gh pr view -R "$GITHUB_REPOSITORY" "$BRANCH" --json number --jq .number)
+          else
+            pr=$PR
+            { echo "Fix round pushed (run: $run)."; echo; cat _in/pr-body.md; } >body.md
+            gh pr comment -R "$GITHUB_REPOSITORY" "$pr" --body-file body.md
+          fi
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+
+  ci:
+    needs: publish
+    if: needs.publish.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/pr-ci.yml
+    with:
+      ref: ${{ needs.publish.outputs.head }}
+      tag: ${{ inputs.tag }}
+      report_name: mutation-report-r${{ inputs.round }}
+
+  review:
+    needs: [publish, ci]
+    if: always() && needs.publish.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    steps:
+      # main at the workspace root (Claude's configuration comes from here),
+      # the pull request's head in pr/.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.publish.outputs.head }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: mutation-report-r${{ inputs.round }}
+          path: _review/ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: port-r${{ inputs.round }}
+          path: _review/port
+      - name: Prepare the review material
+        env:
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          scripts/auto-port/review-context.sh "$PREV" "$TAG" patches pr/patches _review
+          {
+            echo "PR CI (build.sh + mutation check) on the head commit: $CI_RESULT"
+            cat _review/ci/mutation-report.txt 2>/dev/null || echo "No mutation report."
+          } >_review/ci.txt
+      - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        id: claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            You are the independent reviewer of an automated port of nofuturekid/ha-bambulab-signed from upstream
+            greghesp/ha-bambulab ${{ inputs.prev }} to ${{ inputs.tag }}. If you answer MERGE, the workflow merges
+            the port and publishes a release that people install to control their 3D printers, with no human
+            looking at it first. Answer MERGE only when you are confident nothing below is violated; otherwise FIX.
+
+            The patch set makes Home Assistant sign the MQTT control commands it sends to Bambu Lab printers.
+            README.md describes the patches.
+
+            Material (read-only; do not run any of the code):
+            - `.` is main (trusted). `pr/` is the pull request head; only pr/patches/ may differ.
+            - `_review/patched/` is upstream ${{ inputs.tag }} with the new series applied: the code that would ship.
+            - `_review/range-diff.txt`: old series on ${{ inputs.prev }} vs new series on ${{ inputs.tag }}.
+            - `_review/upstream.stat`, `_review/upstream-touched.diff`: what upstream changed, the latter limited
+              to files the series touches. `_review/upstream` is the upstream repository with history and
+              remote clusterm (`_review/clusterm.txt`: ClusterM's mqtt_signing since our pinned commit).
+            - `_review/ci.txt`: PR CI result and mutation report for this exact commit.
+            - `_review/port/pr-body.md`: the porter's description. These are claims to check, not facts.
+
+            Check, in this order:
+            1. Nothing can be sent unsigned. Trace every path in `_review/patched/custom_components/bambu_lab/`
+               that publishes to the printer (any `publish(`, any new upstream helper or command, any path that
+               bypasses `BambuClient.publish()`). Every `print` payload must be signed; a message that cannot be
+               signed (no key, no device certificate, exception) must be dropped and logged, never sent.
+            2. Envelope: compact JSON with sorted keys, the signed bytes are exactly the sent bytes, `*_enc`
+               replaces the plaintext `url`/`param`, sequence ids from the in-memory counter.
+            3. `security.app_cert_install` on connect; the slicer credential options; the CRL renewal of patch
+               0005 with all its checks (signature by the chain, validity, newer than installed, leaf not
+               revoked, key matches leaf).
+            4. Any behaviour change in the range-diff that upstream's changes do not explain.
+            5. Tests in the patches weakened, skipped or deleted.
+            6. CI must say success and every mutation killed.
+
+            Findings are short, concrete sentences with file and line where possible. The summary says what you
+            checked. Do not post anything; only answer.
+          claude_args: |
+            --model opus
+            --max-turns 120
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(ls:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git grep:*)"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["MERGE","FIX"]},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}},"required":["verdict","summary","findings"],"additionalProperties":false}'
+      - name: Verdict
+        id: verdict
+        if: always()
+        env:
+          OUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          mkdir -p _review/out
+          printf '%s' "$OUT" >_review/out/review.json
+          verdict=$(jq -r '.verdict // empty' _review/out/review.json 2>/dev/null || true)
+          # Anything but an explicit MERGE is FIX.
+          [ "$verdict" = MERGE ] || verdict=FIX
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          if ! jq -r '"## Independent review (round \(env.ROUND)): \(.verdict)\n\n\(.summary)\n" + ((.findings // []) | map("\n- " + .) | join(""))' \
+            _review/out/review.json >_review/out/comment.md 2>/dev/null; then
+            printf '## Independent review (round %s): FIX\n\nThe reviewer produced no readable verdict.\n' "$ROUND" >_review/out/comment.md
+          fi
+          echo "Verdict: $verdict"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: review-r${{ inputs.round }}
+          path: _review/out/
+
+  comment:
+    needs: [publish, review]
+    if: always() && needs.publish.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: review-r${{ inputs.round }}
+          path: review
+      - name: Post the review on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.publish.outputs.pr || inputs.pr }}
+        run: gh pr comment -R "$GITHUB_REPOSITORY" "$PR" --body-file review/comment.md
+
+  gate:
+    needs: [publish, ci, review]
+    if: always() && needs.publish.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ok: ${{ steps.gate.outputs.ok }}
+      reasons: ${{ steps.gate.outputs.reasons }}
+    steps:
+      # The gate runs from main as it was when the port started.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: mutation-report-r${{ inputs.round }}
+          path: _gate/ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: review-r${{ inputs.round }}
+          path: _gate/review
+      - name: Gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ inputs.base }}
+          HEAD: ${{ needs.publish.outputs.head }}
+          PR: ${{ needs.publish.outputs.pr || inputs.pr }}
+          CI_RESULT: ${{ needs.ci.result }}
+          CI_SHA: ${{ needs.ci.outputs.sha }}
+          VERDICT: ${{ needs.review.outputs.verdict }}
+          REPORT: _gate/ci/mutation-report.txt
+        run: |
+          git fetch -q origin "$HEAD"
+          scripts/auto-port/gate.sh
+      - name: Findings for the fix round
+        if: always()
+        env:
+          REASONS: ${{ steps.gate.outputs.reasons }}
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          mkdir -p _gate/out
+          {
+            echo "# Round $ROUND results"
+            echo
+            echo "PR CI: $CI_RESULT"
+            cat _gate/ci/mutation-report.txt 2>/dev/null || echo "No mutation report."
+            echo
+            echo "Gate:"
+            echo "${REASONS:-all checks passed}"
+            echo
+            cat _gate/review/comment.md 2>/dev/null || echo "No review."
+          } >_gate/out/findings.md
+          cp _gate/review/review.json _gate/out/ 2>/dev/null || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: findings-r${{ inputs.round }}
+          path: _gate/out/
+
+  summary:
+    needs: [port, publish, ci, review, gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.s.outputs.changed }}
+      pr: ${{ steps.s.outputs.pr }}
+      head: ${{ steps.s.outputs.head }}
+      ok: ${{ steps.s.outputs.ok }}
+      failed: ${{ steps.s.outputs.failed }}
+    steps:
+      - id: s
+        env:
+          PORT: ${{ needs.port.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          CHANGED: ${{ needs.publish.outputs.changed }}
+          HEAD: ${{ needs.publish.outputs.head }}
+          PR: ${{ needs.publish.outputs.pr || inputs.pr }}
+          CI: ${{ needs.ci.result }}
+          VERDICT: ${{ needs.review.outputs.verdict }}
+          OK: ${{ needs.gate.outputs.ok }}
+          REASONS: ${{ needs.gate.outputs.reasons }}
+        run: |
+          ok=false failed=
+          if [ "$PORT" != success ]; then
+            failed="port (round $ROUND): the porter did not finish or reported failure"
+          elif [ "$PUBLISH" != success ]; then
+            failed="publish (round $ROUND): the porter's output was rejected or could not be committed"
+          elif [ "$CHANGED" != true ]; then
+            [ "$ROUND" = 1 ] || failed="fix round: the porter changed nothing"
+          elif [ "$OK" = true ]; then
+            ok=true
+          else
+            failed=$(printf 'gate (round %s): PR CI %s, review %s\n%s' "$ROUND" "$CI" "${VERDICT:-none}" "$REASONS")
+          fi
+          {
+            echo "changed=$CHANGED"
+            echo "head=$HEAD"
+            echo "pr=$PR"
+            echo "ok=$ok"
+            echo "failed<<SUMMARY_EOF"
+            echo "$failed"
+            echo "SUMMARY_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "ok=$ok changed=$CHANGED"
+          [ -z "$failed" ] || echo "$failed"

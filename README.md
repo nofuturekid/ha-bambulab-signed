@@ -56,6 +56,29 @@ If a patch no longer applies or a test fails, the workflow opens an issue and th
 
 Build locally: `./build.sh v2.2.26 1 dist` (needs `tests/requirements.txt` from upstream plus `cryptography`).
 
+Pull requests run [`pr-ci.yml`](.github/workflows/pr-ci.yml) (read-only): `build.sh` on the latest upstream release and the mutation check [`scripts/mutate.sh`](scripts/mutate.sh), which applies each mutation in [`scripts/mutations.txt`](scripts/mutations.txt) (envelope format, `*_enc`, sequence ids, both drop-instead-of-unsigned paths, the CRL checks) and requires a test to fail for every one.
+
+## Automatic ports
+
+When a daily build fails because the patches no longer apply to a new upstream release, [`auto-port.yml`](.github/workflows/auto-port.yml) ports them, reviews the port and, if every gate holds, merges and releases it without a human:
+
+1. **Detect** (after a failed `Build release` run, or manually with an upstream tag): the latest upstream release, the same `git am --3way` check as `build.sh`. If the patches apply, nothing happens. An open "Auto-port failed on upstream …" issue or an existing `auto-port/<tag>` branch stops a second attempt.
+2. **Port**: Claude Code ([claude-code-action](https://github.com/anthropics/claude-code-action)) runs [`scripts/rebase-series.sh`](scripts/rebase-series.sh), resolves conflicts (resolvers in [`scripts/port/`](scripts/port)), compares with ClusterM's `mqtt_signing`, regenerates the patches with [`scripts/export-series.sh`](scripts/export-series.sh), runs `build.sh` and the mutation check and writes the pull request text. Its token is read-only; its only secret is `CLAUDE_CODE_OAUTH_TOKEN`, kept out of the commands it runs.
+3. **Publish**: a job without Claude takes only `patches/*.patch` and `patches/clusterm-mqtt_signing.sha` from the porter's output, commits them to `auto-port/<tag>` through the GitHub API (a commit GitHub signs) and opens the pull request. A port that reproduces the current patch set ends here.
+4. **PR CI** on that exact commit, then an **independent review**: a second Claude run with a fresh context and a read-only token, focused on the signing invariants and behaviour changes, answers `MERGE` or `FIX` as structured output. The review is posted on the pull request.
+5. **Gate**, from `main` as it was when the port started. All must hold:
+   - PR CI succeeded, and on the commit that would be merged;
+   - the review verdict is `MERGE`;
+   - `tests/test_signed_envelope.py` and `scripts/mutations.txt` are unchanged and nothing outside `patches/` changed (`git diff`);
+   - the mutation report lists every mutation from `main`'s `scripts/mutations.txt` as killed;
+   - the commit is GitHub-verified and `main` has not moved, so landing is a fast-forward.
+6. **One fix round**: if anything after publishing fails, the porter gets the review findings and gate results once, and steps 3-5 run again. There is no further retry.
+7. **Land**: `main` is fast-forwarded to the gated commit and `release.yml` is started; it builds and attests the release as for any other change.
+
+Any failure opens or updates one issue assigned to the owner, with the failing step and links. Nothing is merged or released then. Installing an update in Home Assistant stays manual.
+
+`workflow_dispatch` with `force` runs the porter even when the patches apply; such a dry run never merges.
+
 ## License
 
 MIT, as upstream. Not affiliated with Bambu Lab, greghesp or ClusterM.

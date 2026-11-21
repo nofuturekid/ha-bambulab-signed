@@ -1,0 +1,7 @@
+Model the signing state in upstream's PrintFun and H3C tests
+
+PrintFun only raises event_printer_mqtt_encryption_enabled, and the
+prompt sound is only hidden, when the client cannot sign commands.
+Upstream's tests use a bare MagicMock client, whose
+mqtt_signing_enabled attribute is truthy, so they saw a client that
+can sign. Pin the stock state (no signing) and cover the signed case.
