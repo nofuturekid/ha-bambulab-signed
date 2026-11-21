@@ -61,7 +61,11 @@ jobs:
             exit 1
           fi
           rm -rf patches
-          git checkout "$REF" -- patches
+          git -c core.symlinks=false checkout "$REF" -- patches
+          if [ -n "$(find patches -type l)" ]; then
+            echo "symlink in patches/" >&2
+            exit 1
+          fi
           git diff --quiet "$REF" -- . || { echo "tree differs from $REF" >&2; exit 1; }
       - id: sha
         env:
@@ -91,6 +95,8 @@ jobs:
         env:
           UP: ${{ steps.tag.outputs.tag }}
         run: ./build.sh "$UP" 0 dist
+      - name: Port tool tests
+        run: python3 -m pytest -q -p no:cacheprovider scripts/port
       - name: Mutation check
         env:
           UP: ${{ steps.tag.outputs.tag }}

@@ -25,7 +25,7 @@ done
 
 mkdir -p "$out"
 up="$out/upstream"
-git clone -q https://github.com/greghesp/ha-bambulab.git "$up"
+git clone -q -c core.symlinks=false https://github.com/greghesp/ha-bambulab.git "$up"
 cd "$up"
 git config user.name review
 git config user.email review@localhost

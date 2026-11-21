@@ -105,7 +105,8 @@ jobs:
       - name: Prepare upstream
         run: |
           # Full clone: git am --3way needs the base blobs locally.
-          git clone -q https://github.com/greghesp/ha-bambulab.git _port/upstream
+          # core.symlinks=false: git never creates symlinks in this tree.
+          git clone -q -c core.symlinks=false https://github.com/greghesp/ha-bambulab.git _port/upstream
           git -C _port/upstream remote add clusterm https://github.com/ClusterM/ha-bambulab.git
           git -C _port/upstream fetch -q clusterm mqtt_signing || echo "ClusterM mqtt_signing not available"
           # A symlink in upstream's tree could point Claude's file tools
@@ -204,10 +205,16 @@ jobs:
           echo "Porter status: ${status:-none}"
           jq -r '.summary // empty' <<<"$OUT" || true
           [ "$status" = ported ] || exit 1
-          [ -s _port/pr-body.md ] || { echo "no _port/pr-body.md" >&2; exit 1; }
-          mkdir -p _port/out/patches
-          cp patches/* _port/out/patches/
-          cp _port/pr-body.md _port/out/
+          # Only regular files leave this job, copied into a fresh directory.
+          if [ -n "$(find patches _port/pr-body.md -type l)" ] || [ ! -f _port/pr-body.md ] || [ -L _port/pr-body.md ]; then
+            echo "symlink or missing file in the porter's output" >&2
+            exit 1
+          fi
+          out=$(mktemp -d)
+          mkdir "$out/patches"
+          find patches -maxdepth 1 -type f -exec cp --no-dereference -t "$out/patches" {} +
+          cp --no-dereference _port/pr-body.md "$out/"
+          rm -rf _port/out && mv "$out" _port/out
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: port-r${{ inputs.round }}
@@ -257,6 +264,10 @@ jobs:
           fi
           msg=$(printf '%s\n\nAutomated port: %s\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n' \
             "$msg" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          if [ -n "$(find _in -type l)" ]; then
+            echo "symlink in the porter's artifact" >&2
+            exit 1
+          fi
           IN_DIR=_in FORK=$fork PARENT=$parent MESSAGE=$msg python3 -I scripts/auto-port/publish.py
       - name: Open or update the pull request
         id: pr
