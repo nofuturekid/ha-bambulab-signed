@@ -2,7 +2,7 @@
 
 [greghesp/ha-bambulab](https://github.com/greghesp/ha-bambulab), the Home Assistant integration for Bambu Lab printers, rebuilt from every upstream release with a small patch set that **signs MQTT control commands**. With it, printers that stay in Bambu cloud mode (no Developer/LAN-only mode) accept commands from Home Assistant again: target temperatures, fans, pause/resume/stop, print speed.
 
-Nothing else differs from upstream. Each release is `<upstream version>.<build>`, e.g. `2.2.26.1` = upstream 2.2.26 + patches, build 1.
+Nothing else differs from upstream. Each release is `<upstream version>.<build>`, e.g. `2.4.1.1` = upstream 2.4.1 + patches, build 1.
 
 ## Why
 
@@ -19,7 +19,7 @@ Current Bambu firmware rejects unsigned control commands from third-party client
 
 The signing approach follows [open-bamboo-networking](https://github.com/ClusterM/open-bamboo-networking). See also the more defensive, fan-only upstream proposal [#2121](https://github.com/greghesp/ha-bambulab/pull/2121).
 
-Verified on hardware: X1C, firmware 01.12.00.00, cloud mode — signed `M106` (fan) and `M140` (bed temperature) executed. Not yet verified: pause/resume/stop, print speed, AMS, starting prints.
+Verified on hardware: X1C, firmware 01.12.00.00 and 01.12.01.00, cloud mode — signed `M106` (fan) and `M140` (bed temperature) executed. After a printer firmware update, reload the integration once so the application certificate is installed again (otherwise commands fail with `84033545`). Not yet verified: pause/resume/stop, print speed, AMS, starting prints.
 
 ## Credentials
 
@@ -52,9 +52,9 @@ Updates appear in HACS like any other integration.
 3. Publishes a release with a build provenance attestation:
    `gh attestation verify bambu_lab.zip -R nofuturekid/ha-bambulab-signed`
 
-If a patch no longer applies or a test fails, the workflow opens an issue and the previous release remains current. A second job opens an issue when ClusterM's branch moves past the pinned commit in `patches/clusterm-mqtt_signing.sha`.
+If a patch no longer applies, the automatic port below takes over; if a test fails, the workflow opens an issue and the previous release remains current. A second job opens an issue when ClusterM's branch moves past the pinned commit in `patches/clusterm-mqtt_signing.sha`.
 
-Build locally: `./build.sh v2.2.26 1 dist` (needs `tests/requirements.txt` from upstream plus `cryptography`).
+Build locally: `./build.sh v2.4.1 1 dist` (needs `tests/requirements.txt` from upstream plus `cryptography`).
 
 Pull requests run [`pr-ci.yml`](.github/workflows/pr-ci.yml) (read-only): `build.sh` on the latest upstream release and the mutation check [`scripts/mutate.sh`](scripts/mutate.sh), which applies each mutation in [`scripts/mutations.txt`](scripts/mutations.txt) (envelope format, `*_enc`, sequence ids, both drop-instead-of-unsigned paths, the CRL checks) and requires a test to fail for every one.
 
