@@ -55,7 +55,7 @@ jobs:
           REF: ${{ inputs.ref }}
         run: |
           git fetch -q origin "$REF"
-          outside=$(git diff --name-only HEAD "$REF" | grep -v '^patches/' || true)
+          outside=$(git diff --no-renames --name-only HEAD "$REF" | grep -v '^patches/' || true)
           if [ -n "$outside" ]; then
             echo "$REF changes files outside patches/: $outside" >&2
             exit 1

@@ -118,6 +118,8 @@ jobs:
           fi
       - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
         id: claude
+        env:
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -185,17 +187,19 @@ jobs:
             - Never weaken or delete a test (ours or upstream's).
             - Finish with status "ported" only if steps 1-4 succeeded; otherwise "failed".
           # dontAsk: anything not allowed below is denied. No Bash, no web
-          # tools, none of the action's GitHub MCP tools; reads outside the
-          # workspace are denied, the denials below repeat that for the
-          # places that hold runner credentials or the process environment.
+          # tools, none of the action's GitHub MCP tools. Reads are not
+          # allowed by rule, so only reads inside the workspace run; the
+          # denials below repeat that for places holding runner credentials,
+          # the process environment and .git (the job token is in its config).
+          # The MCP server starts with an empty environment (env -i).
           claude_args: |
             --model opus
             --max-turns 200
             --permission-mode dontAsk
             --tools "Read,Glob,Grep,Edit,Write"
-            --mcp-config '{"mcpServers":{"port":{"command":"python3","args":["-I","${{ runner.temp }}/trusted/scripts/port/port_mcp.py","port","${{ inputs.tag }}","${{ github.workspace }}/_port/upstream","${{ github.workspace }}/patches"]}}}'
-            --allowedTools "Read,Glob,Grep,Edit(/_port/upstream/**),Write(/_port/upstream/**),Edit(/patches/clusterm-mqtt_signing.sha),Write(/patches/clusterm-mqtt_signing.sha),Write(/_port/pr-body.md),Edit(/_port/pr-body.md),mcp__port"
-            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Edit(**/.git/**),Write(**/.git/**),Read(//proc/**),Read(//sys/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/work/_actions/**),Read(~/.*),Read(~/.*/**),mcp__github,mcp__github_ci,mcp__github_comment,mcp__github_file_ops,mcp__github_inline_comment"
+            --mcp-config '{"mcpServers":{"port":{"command":"env","args":["-i","PATH=/usr/bin:/bin","python3","-I","${{ runner.temp }}/trusted/scripts/port/port_mcp.py","port","${{ inputs.tag }}","${{ github.workspace }}/_port/upstream","${{ github.workspace }}/patches"]}}}'
+            --allowedTools "Edit(/_port/upstream/**),Write(/_port/upstream/**),Edit(/patches/clusterm-mqtt_signing.sha),Write(/patches/clusterm-mqtt_signing.sha),Write(/_port/pr-body.md),Edit(/_port/pr-body.md),mcp__port"
+            --disallowedTools "Bash,WebFetch,WebSearch,NotebookEdit,Edit(**/.git/**),Write(**/.git/**),Read(//proc/**),Read(//sys/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/work/_actions/**),Read(~/.*),Read(~/.*/**),Read(/.git/**),Read(**/.git/**),Read(//home/runner/actions-runner/**),Read(//opt/**),Read(//var/**),Read(//run/**),mcp__github,mcp__github_ci,mcp__github_comment,mcp__github_file_ops,mcp__github_inline_comment"
             --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["ported","failed"]},"summary":{"type":"string"}},"required":["status","summary"],"additionalProperties":false}'
       - name: Collect the porter's output
         env:
@@ -357,6 +361,8 @@ jobs:
           fi
       - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
         id: claude
+        env:
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -408,9 +414,9 @@ jobs:
             --max-turns 120
             --permission-mode dontAsk
             --tools "Read,Glob,Grep"
-            --mcp-config '{"mcpServers":{"port":{"command":"python3","args":["-I","${{ github.workspace }}/scripts/port/port_mcp.py","review","${{ github.workspace }}/_review/upstream"]}}}'
-            --allowedTools "Read,Glob,Grep,mcp__port"
-            --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Read(//proc/**),Read(//sys/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/work/_actions/**),Read(~/.*),Read(~/.*/**),mcp__github,mcp__github_ci,mcp__github_comment,mcp__github_file_ops,mcp__github_inline_comment"
+            --mcp-config '{"mcpServers":{"port":{"command":"env","args":["-i","PATH=/usr/bin:/bin","python3","-I","${{ github.workspace }}/scripts/port/port_mcp.py","review","${{ github.workspace }}/_review/upstream"]}}}'
+            --allowedTools "mcp__port"
+            --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Read(//proc/**),Read(//sys/**),Read(//tmp/**),Read(//etc/**),Read(//home/runner/work/_temp/**),Read(//home/runner/work/_actions/**),Read(~/.*),Read(~/.*/**),Read(/.git/**),Read(**/.git/**),Read(//home/runner/actions-runner/**),Read(//opt/**),Read(//var/**),Read(//run/**),mcp__github,mcp__github_ci,mcp__github_comment,mcp__github_file_ops,mcp__github_inline_comment"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["MERGE","FIX"]},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"string"}}},"required":["verdict","summary","findings"],"additionalProperties":false}'
       - name: Verdict
         id: verdict

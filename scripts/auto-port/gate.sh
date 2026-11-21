@@ -31,7 +31,7 @@ pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '[.state, .head.sha, .base
 [ "$pr" = "open $HEAD main" ] || no "PR #$PR is '$pr', expected 'open $HEAD main'"
 
 # 4. Protected invariants untouched, and nothing outside patches/ changed.
-if ! changed=$(git diff --name-only "$BASE" "$HEAD"); then
+if ! changed=$(git diff --no-renames --name-only "$BASE" "$HEAD"); then
 	no "git diff $BASE $HEAD failed"
 fi
 for protected in tests/test_signed_envelope.py scripts/mutations.txt; do

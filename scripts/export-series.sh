@@ -11,6 +11,8 @@
 # `git format-patch --zero-commit` of <upstream-tag>..HEAD, so the same
 # series always produces the same files.
 set -euo pipefail
+# Never create symlinks in the work tree, whatever a tree or patch says.
+git() { command git -c core.symlinks=false "$@"; }
 
 tag=$1
 up=$2

@@ -7,6 +7,8 @@
 # commit (patch) they belong to. Runs `git commit --fixup` and an
 # autosquash rebase onto <upstream-tag>; runs no other program.
 set -euo pipefail
+# Never create symlinks in the work tree, whatever a tree or patch says.
+git() { command git -c core.symlinks=false "$@"; }
 
 tag=$1
 up=$2

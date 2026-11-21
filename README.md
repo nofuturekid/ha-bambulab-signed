@@ -75,6 +75,8 @@ When a daily build fails because the patches no longer apply to a new upstream r
 6. **One fix round**: if anything after publishing fails, the porter gets the review findings and gate results once, and steps 3-5 run again. There is no further retry.
 7. **Land**: `main` is fast-forwarded to the gated commit and `release.yml` is started; it builds and attests the release as for any other change.
 
+Limits: PR CI runs upstream's and the patches' code, so a hostile upstream release could fake its own CI result or mutation report; the gate trusts those signals only as far as the runner sandbox holds, and the independent review is what judges behaviour. Text the Claude jobs write (PR body, review) is public.
+
 Any failure opens or updates one issue assigned to the owner, with the failing step and links. Nothing is merged or released then. Installing an update in Home Assistant stays manual.
 
 `workflow_dispatch` with `force` runs the porter even when the patches apply; such a dry run never merges.

@@ -16,6 +16,8 @@
 #   `git add` the files, `git am --continue`, repeat until the series is in,
 #   then run scripts/export-series.sh.
 set -euo pipefail
+# Never create symlinks in the work tree, whatever a tree or patch says.
+git() { command git -c core.symlinks=false "$@"; }
 
 tag=$1
 up=$2

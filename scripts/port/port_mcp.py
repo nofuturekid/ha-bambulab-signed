@@ -22,6 +22,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -85,7 +86,7 @@ def parse_paths(clone, values):
     return [parse_path(clone, v) for v in values]
 
 
-def git_env(clone):
+def git_env(home):
     config = {
         "core.hooksPath": "/dev/null",
         "core.fsmonitor": "false",
@@ -96,7 +97,7 @@ def git_env(clone):
     }
     env = {
         "PATH": "/usr/bin:/bin",
-        "HOME": str(clone),
+        "HOME": home,
         "LANG": "C.UTF-8",
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null",
@@ -124,7 +125,10 @@ class Server:
         else:
             raise SystemExit("usage: port_mcp.py port|review ...")
         self.clone = Path(clone).resolve()
-        self.env = git_env(self.clone)
+        # An empty, read-only HOME: git reads no user config or attributes.
+        home = tempfile.mkdtemp(prefix="port-home-")
+        os.chmod(home, 0o500)
+        self.env = git_env(home)
         self.tools = dict(
             self.read_tools(), **(self.port_tools() if mode == "port" else {})
         )
@@ -201,14 +205,22 @@ class Server:
         )
 
     # --- port tools ------------------------------------------------------
+    def no_symlinks(self, out):
+        """After any step that changes the tree: refuse to go on if it holds a
+        symlink, from any source. The symlinks are removed first."""
+        found = subprocess.run(
+            ["find", str(self.clone), "-path", "*/.git", "-prune", "-o", "-type", "l", "-print"],
+            env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True,
+        ).stdout.split()
+        if found:
+            for link in found:
+                os.unlink(link)
+            raise Refused(f"symlinks in the tree (removed); the port cannot go on: {found}\n{out}")
+        return out
+
     def t_start(self, a):
-        return self.run(
-            [
-                str(SCRIPTS / "rebase-series.sh"),
-                self.tag,
-                str(self.clone),
-                str(self.patches),
-            ]
+        return self.no_symlinks(
+            self.run([str(SCRIPTS / "rebase-series.sh"), self.tag, str(self.clone), str(self.patches)])
         )
 
     def t_status(self, a):
@@ -250,13 +262,13 @@ class Server:
         return self.git("add", "--", *files)
 
     def t_continue(self, a):
-        return self.git("am", "--continue")
+        return self.no_symlinks(self.git("am", "--continue"))
 
     def t_fixup(self, a):
         commit = parse_rev(a.get("commit"), COMMIT, "commit")
         out = self.t_add(a)
-        return out + self.run(
-            [str(HERE / "fixup.sh"), self.tag, str(self.clone), commit]
+        return self.no_symlinks(
+            out + self.run([str(HERE / "fixup.sh"), self.tag, str(self.clone), commit])
         )
 
     def t_export(self, a):

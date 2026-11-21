@@ -46,6 +46,10 @@ def repo(tmp_path):
     (r / "b.txt").write_text("b\n")
     git(r, "add", "b.txt")
     git(r, "commit", "-q", "-m", "Add b")
+    # A patch that tries to create a symlink out of the clone.
+    (r / "bad").symlink_to("/etc/passwd")
+    git(r, "add", "bad")
+    git(r, "commit", "-q", "-m", "Add a symlink")
     patches = tmp_path / "patches"
     git(r, "format-patch", "-q", "-o", str(patches), "v1.0.0..HEAD")
     # Leave the clone on a commit without the symlink, so that checking out
@@ -170,8 +174,8 @@ def test_server_refuses_injection_and_creates_no_symlinks(repo, tmp_path):
     r, patches = repo
     target = tmp_path / "pwned"
     results = call(
-        r,
-        patches,
+        r, patches,
+        ("port_start", {}),  # refused: the planted symlink "evil" is in the tree
         ("port_start", {}),
         ("git_diff", {"range": f"--output={target}"}),
         ("git_log", {"range": "v1.0.0", "path": "../x"}),
@@ -181,15 +185,16 @@ def test_server_refuses_injection_and_creates_no_symlinks(repo, tmp_path):
         ("no_such_tool", {}),
         ("git_show", {"rev": "HEAD", "path": "b.txt"}),
     )
-    assert (
-        not results[0]["isError"]
-        and "applied cleanly" in results[0]["content"][0]["text"]
-    )
-    assert all(res["isError"] for res in results[1:7])
+    assert results[0]["isError"] and "evil" in results[0]["content"][0]["text"]
+    assert not (r / "evil").exists() and not (r / "evil").is_symlink()
+    assert not results[1]["isError"] and "applied cleanly" in results[1]["content"][0]["text"]
+    assert all(res["isError"] for res in results[2:8])
     assert not target.exists()
-    # core.symlinks=false: the checkout made by port_start wrote a plain file.
-    assert not (r / "link").is_symlink()
-    assert results[7]["content"][0]["text"].endswith("b\n")
+    # core.symlinks=false: neither the tag's symlink nor the one the patch
+    # adds became a symlink; git wrote plain files holding the link text.
+    for name in ("link", "bad"):
+        assert (r / name).is_file() and not (r / name).is_symlink()
+    assert results[8]["content"][0]["text"].endswith("b\n")
 
 
 def test_review_mode_has_only_read_tools(repo):
