@@ -15,6 +15,12 @@ on:
         description: Commit to test
         type: string
         required: true
+      base:
+        description: >-
+          Trusted commit whose build.sh, scripts/ and tests/ run against the
+          patches/ of `ref`; `ref` may differ from it only in patches/.
+        type: string
+        required: true
       tag:
         description: Upstream release to build on
         type: string
@@ -41,10 +47,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.base || inputs.ref }}
           persist-credentials: false
+      - name: Take only patches/ from the commit under test
+        if: inputs.base != ''
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          git fetch -q origin "$REF"
+          outside=$(git diff --name-only HEAD "$REF" | grep -v '^patches/' || true)
+          if [ -n "$outside" ]; then
+            echo "$REF changes files outside patches/: $outside" >&2
+            exit 1
+          fi
+          rm -rf patches
+          git checkout "$REF" -- patches
+          git diff --quiet "$REF" -- . || { echo "tree differs from $REF" >&2; exit 1; }
       - id: sha
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          REF: ${{ inputs.ref }}
+        run: echo "sha=$(git rev-parse "${REF:-HEAD}")" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Start a port of patches/*.patch onto an upstream release.
 #
-#   scripts/rebase-series.sh <upstream-tag> <upstream-clone>
+#   scripts/rebase-series.sh <upstream-tag> <upstream-clone> [<patches-dir>]
+#
+# <patches-dir> defaults to this repository's patches/ (the auto-port runs
+# a read-only copy of scripts/ and passes the workspace's patches/).
 #
 # <upstream-clone> is a clone of greghesp/ha-bambulab with history, so that
 # `git am --3way` can fall back to a 3-way merge (`--filter=blob:none` is
@@ -17,7 +20,7 @@ set -euo pipefail
 
 tag=$1
 up=$2
-fork=$(cd "$(dirname "$0")/.." && pwd)
+patches=$(realpath "${3:-$(dirname "$0")/../patches}")
 if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 	echo "not an upstream release tag: $tag" >&2
 	exit 1
@@ -32,7 +35,7 @@ git checkout -q -B "port/$tag"
 git config user.name port
 git config user.email port@localhost
 
-if git am -q --3way "$fork"/patches/*.patch; then
+if git am -q --3way "$patches"/*.patch; then
 	echo "series applied cleanly on $tag"
 	exit 0
 fi

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Write the series from a finished port back into patches/.
 #
-#   scripts/export-series.sh <upstream-tag> <upstream-clone>
+#   scripts/export-series.sh <upstream-tag> <upstream-clone> [<patches-dir>]
+#
+# <patches-dir> defaults to this repository's patches/ (the auto-port runs
+# a read-only copy of scripts/ and passes the workspace's patches/).
 #
 # Expects branch port/<upstream-tag> from scripts/rebase-series.sh with the
 # whole series applied. Replaces patches/*.patch with
@@ -11,7 +14,7 @@ set -euo pipefail
 
 tag=$1
 up=$2
-fork=$(cd "$(dirname "$0")/.." && pwd)
+patches=$(realpath "${3:-$(dirname "$0")/../patches}")
 
 cd "$up"
 if [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
@@ -38,6 +41,6 @@ if git diff "$tag" HEAD -- custom_components | grep -q 'No newline at end of fil
 	exit 1
 fi
 
-rm -f "$fork"/patches/*.patch
-git format-patch -q --zero-commit --no-signature -o "$fork/patches" "$tag..HEAD"
-ls "$fork/patches"
+rm -f "$patches"/*.patch
+git format-patch -q --zero-commit --no-signature -o "$patches" "$tag..HEAD"
+ls "$patches"

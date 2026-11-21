@@ -119,6 +119,7 @@ jobs:
       prev: ${{ needs.detect.outputs.prev }}
       round: 1
       base: ${{ needs.detect.outputs.base }}
+      dry_run: ${{ needs.detect.outputs.dry_run == 'true' }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -126,7 +127,7 @@ jobs:
   round2:
     needs: [detect, round1]
     if: >-
-      always() && needs.round1.outputs.changed == 'true' &&
+      !cancelled() && needs.round1.outputs.changed == 'true' &&
       needs.round1.outputs.ok != 'true' && needs.round1.outputs.pr != ''
     permissions:
       contents: write
@@ -139,6 +140,7 @@ jobs:
       base: ${{ needs.detect.outputs.base }}
       head: ${{ needs.round1.outputs.head }}
       pr: ${{ needs.round1.outputs.pr }}
+      dry_run: ${{ needs.detect.outputs.dry_run == 'true' }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -148,7 +150,7 @@ jobs:
   land:
     needs: [detect, round1, round2]
     if: >-
-      always() && needs.detect.outputs.dry_run != 'true' &&
+      !cancelled() && needs.detect.outputs.dry_run != 'true' &&
       (needs.round1.outputs.ok == 'true' || needs.round2.outputs.ok == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -174,7 +176,10 @@ jobs:
           [ "$main" = "$BASE" ] || { echo "main moved to $main" >&2; exit 1; }
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$HEAD" -F force=false --silent
           echo "main is now $HEAD"
+      - name: Start the release
+        run: gh workflow run release.yml -R "$GITHUB_REPOSITORY" --ref main
       - name: Close the pull request
+        continue-on-error: true
         run: |
           for _ in 1 2 3 4 5 6; do
             [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .merged)" = true ] && break
@@ -184,8 +189,26 @@ jobs:
             gh pr close -R "$GITHUB_REPOSITORY" "$PR" --comment "Landed on main as $HEAD (fast-forward)."
           fi
           gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/auto-port/$TAG" --silent || true
-      - name: Start the release
-        run: gh workflow run release.yml -R "$GITHUB_REPOSITORY" --ref main
+
+  # A dry run's pull request and branch would block a real port of the tag.
+  cleanup-dry-run:
+    needs: [detect, round1, round2]
+    if: >-
+      always() && needs.detect.outputs.dry_run == 'true' && needs.round1.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.detect.outputs.tag }}
+      PR: ${{ needs.round1.outputs.pr }}
+    steps:
+      - name: Close the dry run's pull request
+        run: |
+          gh pr close -R "$GITHUB_REPOSITORY" "$PR" --comment "Dry run (forced port); never merged." || true
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/auto-port/$TAG" --silent || true
 
   report:
     needs: [detect, round1, round2, land]
@@ -217,8 +240,9 @@ jobs:
             echo "Nothing to port."; exit 0
           elif [ "$LAND" = success ]; then
             echo "Landed and release started."; exit 0
-          elif [ "$LAND" = failure ]; then
-            failed="land: fast-forwarding main or starting the release failed"
+          elif [ "$LAND" = failure ] || [ "$LAND" = cancelled ]; then
+            failed="land ($LAND): main may already be fast-forwarded; check main and the Build release runs"
+            landed=maybe
           elif [ "$R1_OK" = true ] || [ "$R2_OK" = true ]; then
             echo "Dry run passed every gate; not merged."; exit 0
           elif [ "$R1_CHANGED" = false ] && [ -z "$R1_FAILED" ]; then
@@ -236,8 +260,13 @@ jobs:
             echo "Run: $run"
             [ -z "$PR" ] || echo "Pull request: #$PR"
             echo
-            echo "Nothing was merged or released; the previous release stays current. The auto-port does not retry"
-            echo "this upstream release while this issue is open or the branch auto-port/$TAG exists."
+            if [ "${landed:-}" = maybe ]; then
+              echo "Landing did not complete: main may have moved without a release. Check before re-running."
+            else
+              echo "Nothing was merged or released; the previous release stays current."
+            fi
+            echo "The auto-port does not retry this upstream release while this issue is open or the branch"
+            echo "auto-port/$TAG exists."
           } >body.md
           num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --json number,title \
             --jq '.[] | "\(.number)\t\(.title)"' | awk -F'\t' -v t="$title" '$2 == t { print $1; exit }')

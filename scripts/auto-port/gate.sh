@@ -14,6 +14,11 @@ no() {
 	reasons+=("$1")
 }
 
+# 0. This script, scripts/mutations.txt and everything else read below come
+#    from the trusted base, never from the pull request.
+[ "$(git rev-parse HEAD)" = "$BASE" ] || no "the gate does not run from $BASE"
+[ -z "$(git status --porcelain --untracked-files=no)" ] || no "the base checkout is modified"
+
 # 1. CI green on exactly the commit that would be merged.
 [ "$CI_RESULT" = success ] || no "PR CI result is '$CI_RESULT', not success"
 [ "$CI_SHA" = "$HEAD" ] || no "PR CI tested $CI_SHA, not the head $HEAD"
