@@ -212,7 +212,7 @@ jobs:
 
   report:
     needs: [detect, round1, round2, land]
-    if: always() && needs.detect.result != 'skipped'
+    if: ${{ !cancelled() && needs.detect.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

@@ -6,9 +6,8 @@
 # <patches-dir> defaults to this repository's patches/ (the auto-port runs
 # a read-only copy of scripts/ and passes the workspace's patches/).
 #
-# <upstream-clone> is a clone of greghesp/ha-bambulab with history, so that
-# `git am --3way` can fall back to a 3-way merge (`--filter=blob:none` is
-# enough). The script checks out <upstream-tag> on branch port/<upstream-tag>
+# <upstream-clone> is a full clone of greghesp/ha-bambulab (not a partial
+# clone: `git am --3way` needs the base blobs locally). The script checks out <upstream-tag> on branch port/<upstream-tag>
 # and applies the series.
 #
 # Exit 0: the whole series applied. Run scripts/export-series.sh next.
@@ -34,6 +33,7 @@ git checkout -q -B "port/$tag"
 # export-series.sh writes the patches with --zero-commit.
 git config user.name port
 git config user.email port@localhost
+git config merge.conflictStyle diff3
 
 if git am -q --3way "$patches"/*.patch; then
 	echo "series applied cleanly on $tag"
