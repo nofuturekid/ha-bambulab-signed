@@ -1,8 +1,9 @@
 name: Build release
 
-# Daily: rebuild on top of the latest greghesp/ha-bambulab release whenever
-# upstream or our build inputs changed. A failed build opens an issue and the
-# previous release stays the one HACS offers.
+# Daily: rebuild on top of the newest greghesp/ha-bambulab release (including
+# pre-releases such as betas and release candidates) whenever upstream or our
+# build inputs changed. A failed build opens an issue and the previous release
+# stays the one HACS offers.
 #
 # Upstream code and its PyPI test dependencies run only in the `build` job,
 # which has a read-only token and no credentials in the checkout. The jobs
@@ -54,9 +55,10 @@ jobs:
       - name: Plan
         id: plan
         run: |
-          up=$(gh api repos/greghesp/ha-bambulab/releases/latest --jq .tag_name)
-          # The tag comes from another repository: accept only a plain version.
-          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          up=$(gh api 'repos/greghesp/ha-bambulab/releases?per_page=5' --jq '[.[] | select(.draft | not)][0].tag_name')
+          # The tag comes from another repository: accept versions with
+          # optional pre-release suffix (e.g. v3.0.0-beta1, v2.5.0-rc2).
+          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "Unexpected upstream tag: $up" >&2
             exit 1
           fi
@@ -133,8 +135,10 @@ jobs:
             echo
             echo "patchset $PATCHSET"
           } > notes.md
+          prerelease_flag=""
+          [[ $UP == *-* ]] && prerelease_flag="--prerelease"
           gh release create "v$version" dist/bambu_lab.zip -R "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --title "$version" --notes-file notes.md
+            --target "$GITHUB_SHA" --title "$version" --notes-file notes.md $prerelease_flag
 
   report-failure:
     needs: [plan, build, release]
