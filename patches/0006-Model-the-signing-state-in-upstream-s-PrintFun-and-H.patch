@@ -1,4 +1,4 @@
-From aec14334640fad1bd47c74c1fe54645abfa17d73 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thomas Kroll <t.kroll@outlook.com>
 Date: Sat, 14 Nov 2026 09:49:49 +0100
 Subject: [PATCH 6/6] Model the signing state in upstream's PrintFun and H3C
@@ -10,9 +10,10 @@ Upstream's tests use a bare MagicMock client, whose
 mqtt_signing_enabled attribute is truthy, so they saw a client that
 can sign. Pin the stock state (no signing) and cover the signed case.
 ---
- tests/pybambu/test_h3c.py       | 11 +++++++++++
- tests/pybambu/test_print_fun.py | 11 +++++++++++
- 2 files changed, 22 insertions(+)
+ tests/pybambu/test_h3c.py         | 11 +++++++++++
+ tests/pybambu/test_print_fun.py   | 11 +++++++++++
+ tests/test_encryption_controls.py | 19 ++++++++++++++++++-
+ 3 files changed, 40 insertions(+), 1 deletion(-)
 
 diff --git a/tests/pybambu/test_h3c.py b/tests/pybambu/test_h3c.py
 index 2117248..80e3f26 100644
@@ -44,7 +45,7 @@ index 2117248..80e3f26 100644
          self.load()
          self.assertTrue(self.device.supports_feature(Features.HEATBED_LIGHT))
 diff --git a/tests/pybambu/test_print_fun.py b/tests/pybambu/test_print_fun.py
-index d318bcb..b0a741e 100644
+index c025a12..294d445 100644
 --- a/tests/pybambu/test_print_fun.py
 +++ b/tests/pybambu/test_print_fun.py
 @@ -7,6 +7,8 @@ from pybambu.models import PrintFun
@@ -56,7 +57,7 @@ index d318bcb..b0a741e 100644
          self.fun = PrintFun(client=self.client)
  
      def test_fun_bit29_set_means_secured(self):
-@@ -81,6 +83,15 @@ class TestPrintFunSignatureDetection(unittest.TestCase):
+@@ -86,6 +88,15 @@ class TestPrintFunSignatureDetection(unittest.TestCase):
          self.fun.print_update({"fun": "", "flag3": 65552})
          self.client.callback.assert_called_once_with("event_printer_mqtt_encryption_enabled")
  
@@ -72,3 +73,37 @@ index d318bcb..b0a741e 100644
      def test_no_data_means_not_secured(self):
          self.fun.print_update({})
          self.assertFalse(self.fun.mqtt_signature_required)
+diff --git a/tests/test_encryption_controls.py b/tests/test_encryption_controls.py
+index 5a42ffd..ee39278 100644
+--- a/tests/test_encryption_controls.py
++++ b/tests/test_encryption_controls.py
+@@ -38,7 +38,9 @@ def coordinator(monkeypatch):
+ @pytest.fixture
+ def print_fun(coordinator):
+     """The real detection, delivering its events to the coordinator."""
+-    return PrintFun(client=SimpleNamespace(callback=coordinator.event_handler_internal))
++    # Stock client: no signing credentials configured.
++    return PrintFun(client=SimpleNamespace(
++        callback=coordinator.event_handler_internal, mqtt_signing_enabled=False))
+ 
+ 
+ def _printer_ready(coordinator):
+@@ -70,3 +72,18 @@ def test_unchanged_requirement_does_not_rebuild_again(coordinator, print_fun):
+     print_fun.print_update({"gcode_state": "RUNNING"})
+ 
+     coordinator._reinitialize_sensors.assert_not_called()
++
++
++def test_turning_developer_mode_off_keeps_the_controls_when_commands_can_be_signed(coordinator):
++    # With signing configured the printer accepts the commands, so the
++    # controls stay and no rebuild is requested.
++    print_fun = PrintFun(client=SimpleNamespace(
++        callback=coordinator.event_handler_internal, mqtt_signing_enabled=True))
++    print_fun.print_update(DEVELOPER_MODE_ON)
++    _printer_ready(coordinator)
++
++    print_fun.print_update(DEVELOPER_MODE_OFF)
++
++    assert print_fun.mqtt_signature_required
++    assert not print_fun.mqtt_control_blocked
++    coordinator._reinitialize_sensors.assert_not_called()

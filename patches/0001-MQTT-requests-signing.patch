@@ -1,4 +1,4 @@
-From 29f7fa75510e3f54ceb32287aa3b3a2805cb62ca Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alexey Cluster <cluster@cluster.wtf>
 Date: Tue, 15 Sep 2026 02:16:32 +0000
 Subject: [PATCH 1/6] MQTT requests signing
@@ -52,10 +52,10 @@ index bb14767..0ddd1dd 100644
              BambuLabPauseButton(coordinator, entry),
              BambuLabResumeButton(coordinator, entry),
 diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
-index c92d062..357794a 100644
+index a26bb4b..773b0de 100644
 --- a/custom_components/bambu_lab/config_flow.py
 +++ b/custom_components/bambu_lab/config_flow.py
-@@ -52,6 +52,7 @@ AMS_HEATER_MODE = "ams_heater"
+@@ -56,6 +56,7 @@ AMS_HEATER_MODE = "ams_heater"
  BOOLEAN_SELECTOR = BooleanSelector()
  NUMBER_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.NUMBER))
  TEXT_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
@@ -63,7 +63,7 @@ index c92d062..357794a 100644
  PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
  REGION_LIST = [
      SelectOptionDict(value="AsiaPacific", label="Asia Pacific"),
-@@ -559,6 +560,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -640,6 +641,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                              "usage_hours": float(user_input['usage_hours']),
                              "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                              "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -72,7 +72,7 @@ index c92d062..357794a 100644
                              "force_ip": force_ip,
                      }
  
-@@ -576,6 +579,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -657,6 +660,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -81,7 +81,7 @@ index c92d062..357794a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -590,6 +595,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -671,6 +676,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -91,7 +91,7 @@ index c92d062..357794a 100644
              }),
              {'collapsed': True},
          )
-@@ -642,6 +650,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -723,6 +731,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                          "usage_hours": float(user_input['usage_hours']),
                          "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                          "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -100,7 +100,7 @@ index c92d062..357794a 100644
                          "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
                  }
  
-@@ -672,6 +682,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -753,6 +763,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -109,7 +109,7 @@ index c92d062..357794a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -685,6 +697,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -766,6 +778,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -119,19 +119,19 @@ index c92d062..357794a 100644
              }),
              {'collapsed': True},
          )
-@@ -1005,6 +1020,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1087,6 +1102,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                     options["usage_hours"] = float(user_input['usage_hours'])
+                     options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                      options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
-                     options["enable_filament_inventory"] = user_input['advanced'].get('enable_filament_inventory', False)
-                     options["filament_inventory_interval"] = max(1, int(user_input['advanced'].get('filament_inventory_interval', 60)))
 +                    options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
 +                    options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
                      options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
                      options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
                      options["force_ip"] = force_ip
-@@ -1041,6 +1058,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1121,6 +1138,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
+         default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
-         default_enable_filament_inventory = self._config_entry.options.get('enable_filament_inventory', False) if user_input is None else user_input.get('advanced', {}).get('enable_filament_inventory', self._config_entry.options.get('enable_filament_inventory', False))
-         default_filament_inventory_interval = str(self._config_entry.options.get('filament_inventory_interval', 60)) if user_input is None else user_input.get('advanced', {}).get('filament_inventory_interval', self._config_entry.options.get('filament_inventory_interval', 60))
 +        # After submit, missing optional keys mean the user cleared them — do not
 +        # fall back to the previously stored options value.
 +        default_slicer_cert_id = self._config_entry.options.get('slicer_cert_id', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
@@ -139,29 +139,29 @@ index c92d062..357794a 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -1058,6 +1079,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1136,6 +1157,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+             vol.Schema({
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
-                 vol.Required('enable_filament_inventory', default=default_enable_filament_inventory): BOOLEAN_SELECTOR,
-                 vol.Required('filament_inventory_interval', default=default_filament_inventory_interval): NUMBER_SELECTOR,
 +                # Use suggested_value (not default) so clearing the field saves as empty.
 +                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
 +                vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
              }),
              {'collapsed': True},
          )
-@@ -1108,6 +1132,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1184,6 +1208,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+                 options["usage_hours"] = float(user_input['usage_hours'])
+                 options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                  options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
-                 options["enable_filament_inventory"] = user_input['advanced'].get('enable_filament_inventory', False)
-                 options["filament_inventory_interval"] = max(1, int(user_input['advanced'].get('filament_inventory_interval', 60)))
 +                options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
 +                options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
                  options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
  
                  title = self._config_entry.data['serial']
-@@ -1143,6 +1169,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1217,6 +1243,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
+         default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
-         default_enable_filament_inventory = self._config_entry.options.get('enable_filament_inventory', False) if user_input is None else user_input.get('advanced', {}).get('enable_filament_inventory', self._config_entry.options.get('enable_filament_inventory', False))
-         default_filament_inventory_interval = str(self._config_entry.options.get('filament_inventory_interval', 60)) if user_input is None else user_input.get('advanced', {}).get('filament_inventory_interval', self._config_entry.options.get('filament_inventory_interval', 60))
 +        # After submit, missing optional keys mean the user cleared them — do not
 +        # fall back to the previously stored options value.
 +        default_slicer_cert_id = self._config_entry.options.get('slicer_cert_id', '') if user_input is None else user_input.get('advanced', {}).get('slicer_cert_id', '')
@@ -169,10 +169,10 @@ index c92d062..357794a 100644
  
          fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
          fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
-@@ -1155,6 +1185,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1227,6 +1257,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+             vol.Schema({
+                 vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
-                 vol.Required('enable_filament_inventory', default=default_enable_filament_inventory): BOOLEAN_SELECTOR,
-                 vol.Required('filament_inventory_interval', default=default_filament_inventory_interval): NUMBER_SELECTOR,
 +                # Use suggested_value (not default) so clearing the field saves as empty.
 +                vol.Optional('slicer_cert_id', description={"suggested_value": default_slicer_cert_id}): TEXT_SELECTOR,
 +                vol.Optional('slicer_key', description={"suggested_value": default_slicer_key}): MULTILINE_TEXT_SELECTOR,
@@ -180,7 +180,7 @@ index c92d062..357794a 100644
              {'collapsed': True},
          )
 diff --git a/custom_components/bambu_lab/coordinator.py b/custom_components/bambu_lab/coordinator.py
-index d7eab4b..23db5ef 100644
+index f7c46dc..54417a0 100644
 --- a/custom_components/bambu_lab/coordinator.py
 +++ b/custom_components/bambu_lab/coordinator.py
 @@ -3,6 +3,7 @@ from __future__ import annotations
@@ -191,15 +191,15 @@ index d7eab4b..23db5ef 100644
  import os
  import re
  import time
-@@ -85,6 +86,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -105,6 +106,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
          config.update(entry.options.items())
          config['user_language'] = hass.config.language
          config['file_cache_path'] = self.get_file_cache_directory(config['serial'])
 +        config['device_cert_path'] = hass.config.path(f".storage/bambu_lab/certs/{config['serial']}.pem")
          self.client = BambuClient(config)
          remove_legacy_makerworld_device(hass, entry)
- 
-@@ -324,7 +326,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
+         remove_legacy_filament_inventory_entity(hass, entry)
+@@ -372,7 +374,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
              write_action = False
  
          if write_action:
@@ -209,10 +209,10 @@ index d7eab4b..23db5ef 100644
                  self._report_encryption_enabled_issue(True)
                  return False
 diff --git a/custom_components/bambu_lab/definitions.py b/custom_components/bambu_lab/definitions.py
-index bc97f23..4f6346d 100644
+index 313a887..0792c33 100644
 --- a/custom_components/bambu_lab/definitions.py
 +++ b/custom_components/bambu_lab/definitions.py
-@@ -274,7 +274,7 @@ PRINTER_BINARY_SENSORS: tuple[BambuLabBinarySensorEntityDescription, ...] = (
+@@ -290,7 +290,7 @@ PRINTER_BINARY_SENSORS: tuple[BambuLabBinarySensorEntityDescription, ...] = (
          device_class=BinarySensorDeviceClass.RUNNING,
          entity_category=EntityCategory.DIAGNOSTIC,
          is_on_fn=lambda self: self.coordinator.get_model().supports_feature(Features.MQTT_ENCRYPTION_FIRMWARE)
@@ -222,7 +222,7 @@ index bc97f23..4f6346d 100644
      BambuLabBinarySensorEntityDescription(
          key="mqtt_encryption",
 diff --git a/custom_components/bambu_lab/fan.py b/custom_components/bambu_lab/fan.py
-index cb75772..aced234 100644
+index b70d6b9..ff3b44e 100644
 --- a/custom_components/bambu_lab/fan.py
 +++ b/custom_components/bambu_lab/fan.py
 @@ -85,7 +85,7 @@ async def async_setup_entry(
@@ -248,10 +248,10 @@ index 870c4f8..d1c6c69 100644
              if description.exists_fn(coordinator):
                  async_add_entities([BambuLabNumber(coordinator, description, entry)])
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index 5c0927c..a4e31fd 100644
+index bb1c56e..7f75df6 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
-@@ -32,6 +32,15 @@ from .commands import (
+@@ -33,6 +33,15 @@ from .commands import (
      START_PUSH,
  )
  from .mock_mqtt_client import MockMQTTClient
@@ -267,7 +267,7 @@ index 5c0927c..a4e31fd 100644
  from .utils import safe_json_loads
  
  class WatchdogThread(threading.Thread):
-@@ -403,6 +412,16 @@ class BambuClient:
+@@ -433,6 +442,16 @@ class BambuClient:
          self._tcp6000_media_supported = None
          self._tcp6000_media_storages = []
          self._tcp6000_media_probe_time = 0.0
@@ -284,7 +284,7 @@ index 5c0927c..a4e31fd 100644
  
          self._connected = False
          self._device_confirmed = False
-@@ -443,6 +462,57 @@ class BambuClient:
+@@ -475,6 +494,57 @@ class BambuClient:
          """Return if connected to server"""
          return self._connected
  
@@ -342,7 +342,7 @@ index 5c0927c..a4e31fd 100644
      @property
      def camera_enabled(self):
          return self._enable_camera
-@@ -563,6 +633,7 @@ class BambuClient:
+@@ -595,6 +665,7 @@ class BambuClient:
                     properties: mqtt.Properties | None = None, ):
          """Handle connection"""
          LOGGER.debug(f"On Connect: Connected to printer: {result_code}")
@@ -350,10 +350,10 @@ index 5c0927c..a4e31fd 100644
          self._on_connect()
  
      def start_camera(self):
-@@ -699,6 +770,10 @@ class BambuClient:
-                     self._device.info_update(data=json_data.get("info"))
-                 elif json_data.get("system") and json_data.get("system").get("command"):
+@@ -780,6 +851,10 @@ class BambuClient:
                      self._device.observe_system_command(data=json_data.get("system"))
+                 elif json_data.get("update"):
+                     self._device.info.name_update(data=json_data.get("update"))
 +                elif json_data.get("security"):
 +                    sec = json_data["security"]
 +                    if sec.get("command") == "app_cert_install" and sec.get("printer_cert"):
@@ -361,7 +361,7 @@ index 5c0927c..a4e31fd 100644
  
  
          except Exception as e:
-@@ -712,6 +787,13 @@ class BambuClient:
+@@ -793,6 +868,13 @@ class BambuClient:
  
      def publish(self, msg):
          """Publish a custom message"""
@@ -375,7 +375,7 @@ index 5c0927c..a4e31fd 100644
          result = self.client.publish(f"device/{self._serial}/request", json.dumps(msg))
          status = result.rc
          if status == 0:
-@@ -794,6 +876,7 @@ class BambuClient:
+@@ -877,6 +959,7 @@ class BambuClient:
                             properties: mqtt.Properties | None = None, ):
  
              LOGGER.debug(f"try_on_connect: Connected to printer: {result_code}")
@@ -383,7 +383,7 @@ index 5c0927c..a4e31fd 100644
              self.subscribe_and_request_info()
  
          def try_on_disconnect(client_: mqtt.Client,
-@@ -837,6 +920,10 @@ class BambuClient:
+@@ -920,6 +1003,10 @@ class BambuClient:
              if (json_data.get('print', {}).get('command', '') == 'push_status') and (json_data.get('print', {}).get('msg', 0) == 0):
                  self._device.print_update(data=json_data.get("print"))
                  self.received_push = True
@@ -496,10 +496,10 @@ index 0000000..bd5f8af
 +        LOGGER.error(f"Failed to parse printer device cert public key: {type(e)} {e}")
 +        return None
 diff --git a/custom_components/bambu_lab/pybambu/models.py b/custom_components/bambu_lab/pybambu/models.py
-index 189cb8b..af578a1 100644
+index 736492e..08d241a 100644
 --- a/custom_components/bambu_lab/pybambu/models.py
 +++ b/custom_components/bambu_lab/pybambu/models.py
-@@ -324,7 +324,7 @@ class Device:
+@@ -380,7 +380,7 @@ class Device:
              return True
          elif feature == Features.PROMPT_SOUND:
              if model in (a1_printers | a2_printers | h2_printers | h3_printers | p2_printers | x2_printers):
@@ -508,7 +508,7 @@ index 189cb8b..af578a1 100644
              return False
          elif feature == Features.AMS_SWITCH_COMMAND:
              if model in p1_printers:
-@@ -5074,10 +5074,10 @@ class PrintFun:
+@@ -5878,10 +5878,10 @@ class PrintFun:
          else:
              self._encryption_enabled = self._flag3_authorization_control
  
@@ -521,7 +521,7 @@ index 189cb8b..af578a1 100644
              # Signing is no longer required (e.g. developer mode was turned on). The
              # control entities were skipped at setup, so let the coordinator reload.
              self._fired_encryption_enabled_event = False
-@@ -5088,6 +5088,11 @@ class PrintFun:
+@@ -5892,6 +5892,11 @@ class PrintFun:
      @property
      def mqtt_signature_required(self) -> bool:
          return self._encryption_enabled
@@ -655,7 +655,7 @@ index 0000000..c3f178f
 +        LOGGER.error(f"Failed to sign print payload, sending unsigned: {type(e)} {e}")
 +        return msg
 diff --git a/custom_components/bambu_lab/select.py b/custom_components/bambu_lab/select.py
-index fff5ebf..fe83a78 100644
+index 835d960..568ad78 100644
 --- a/custom_components/bambu_lab/select.py
 +++ b/custom_components/bambu_lab/select.py
 @@ -26,7 +26,7 @@ async def async_setup_entry(
@@ -681,816 +681,816 @@ index 7b38f83..7bada68 100644
                  async_add_entities([BambuLabPromptSoundSwitch(coordinator, entry)])
  
 diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
-index 7f3bbf0..13de7ec 100644
+index 3a3fedf..273f979 100644
 --- a/custom_components/bambu_lab/translations/ca.json
 +++ b/custom_components/bambu_lab/translations/ca.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Aquestes opcions només són necessàries si teniu una configuració no estàndard.",
+             "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
-               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
-               "enable_filament_inventory": "Activa l'inventari de filaments (Gestor de filaments, requereix Bambu Cloud)",
--              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):"
-+              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):",
+-              "enable_firmware_update": "Activa l'assistència d'actualització del firmware"
++              "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
 +              "slicer_cert_id": "ID del certificat del slicer (opcional):",
 +              "slicer_key": "Clau privada del slicer (opcional):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Aquestes opcions només són necessàries si teniu una configuració no estàndard.",
+             "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
-               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
-               "enable_filament_inventory": "Activa l'inventari de filaments (Gestor de filaments, requereix Bambu Cloud)",
--              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):"
-+              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):",
+-              "enable_firmware_update": "Activa l'assistència d'actualització del firmware"
++              "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
 +              "slicer_cert_id": "ID del certificat del slicer (opcional):",
 +              "slicer_key": "Clau privada del slicer (opcional):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Aquestes opcions avançades són una funcionalitat precoç o arriscada. Llegiu la documentació i utilitzeu -les pel vostre propi risc.",
+             "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
-               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
-               "enable_filament_inventory": "Activa l'inventari de filaments (Gestor de filaments, requereix Bambu Cloud)",
--              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):"
-+              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):",
+-              "enable_firmware_update": "Activa l'assistència d'actualització del firmware"
++              "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
 +              "slicer_cert_id": "ID del certificat del slicer (opcional):",
 +              "slicer_key": "Clau privada del slicer (opcional):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Aquestes opcions avançades són una funcionalitat precoç o arriscada. Llegiu la documentació i utilitzeu -les pel vostre propi risc.",
+             "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
-               "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
-               "enable_filament_inventory": "Activa l'inventari de filaments (Gestor de filaments, requereix Bambu Cloud)",
--              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):"
-+              "filament_inventory_interval": "Interval d'actualització de l'inventari de filaments (minuts):",
+-              "enable_firmware_update": "Activa l'assistència d'actualització del firmware"
++              "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
 +              "slicer_cert_id": "ID del certificat del slicer (opcional):",
 +              "slicer_key": "Clau privada del slicer (opcional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
-index 8abf966..7175142 100644
+index ac91f55..7a9d01f 100644
 --- a/custom_components/bambu_lab/translations/cs.json
 +++ b/custom_components/bambu_lab/translations/cs.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Tyto možnosti jsou potřeba pouze v případě, že máte nestandardní nastavení.",
+             "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
-               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
-               "enable_filament_inventory": "Povolit inventář vláken (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):"
-+              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):",
+-              "enable_firmware_update": "Povolit podporu aktualizace firmwaru"
++              "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
 +              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
 +              "slicer_key": "Soukromý klíč sliceru (volitelné):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Tyto možnosti jsou potřeba pouze v případě, že máte nestandardní nastavení.",
+             "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
-               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
-               "enable_filament_inventory": "Povolit inventář vláken (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):"
-+              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):",
+-              "enable_firmware_update": "Povolit podporu aktualizace firmwaru"
++              "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
 +              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
 +              "slicer_key": "Soukromý klíč sliceru (volitelné):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Tyto pokročilé možnosti jsou rané nebo riskantní funkce. Přečtěte si dokumentaci a používejte je na vlastní nebezpečí.",
+             "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
-               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
-               "enable_filament_inventory": "Povolit inventář vláken (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):"
-+              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):",
+-              "enable_firmware_update": "Povolit podporu aktualizace firmwaru"
++              "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
 +              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
 +              "slicer_key": "Soukromý klíč sliceru (volitelné):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Tyto pokročilé možnosti jsou rané nebo riskantní funkce. Přečtěte si dokumentaci a používejte je na vlastní nebezpečí.",
+             "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
-               "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
-               "enable_filament_inventory": "Povolit inventář vláken (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):"
-+              "filament_inventory_interval": "Interval obnovy inventáře vláken (minuty):",
+-              "enable_firmware_update": "Povolit podporu aktualizace firmwaru"
++              "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
 +              "slicer_cert_id": "ID certifikátu sliceru (volitelné):",
 +              "slicer_key": "Soukromý klíč sliceru (volitelné):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
-index fa1fdeb..ef12fbe 100644
+index be90a18..95abbdd 100644
 --- a/custom_components/bambu_lab/translations/da.json
 +++ b/custom_components/bambu_lab/translations/da.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Disse indstillinger er kun nødvendige, hvis du har en ikke-standardopsætning.",
+             "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
-               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
-               "enable_filament_inventory": "Aktiver filamentbeholdning (Filament Manager, kræver Bambu Cloud)",
--              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):"
-+              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):",
+-              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte"
++              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
 +              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
 +              "slicer_key": "Slicer privat nøgle (valgfrit):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Disse indstillinger er kun nødvendige, hvis du har en ikke-standardopsætning.",
+             "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
-               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
-               "enable_filament_inventory": "Aktiver filamentbeholdning (Filament Manager, kræver Bambu Cloud)",
--              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):"
-+              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):",
+-              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte"
++              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
 +              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
 +              "slicer_key": "Slicer privat nøgle (valgfrit):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Disse avancerede muligheder er tidlig eller risikabel funktionalitet. Læs dokumentationen, og brug dem på din egen risiko.",
+             "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
-               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
-               "enable_filament_inventory": "Aktiver filamentbeholdning (Filament Manager, kræver Bambu Cloud)",
--              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):"
-+              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):",
+-              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte"
++              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
 +              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
 +              "slicer_key": "Slicer privat nøgle (valgfrit):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Disse avancerede muligheder er tidlig eller risikabel funktionalitet. Læs dokumentationen og brug dem på din egen risiko.",
+             "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
-               "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
-               "enable_filament_inventory": "Aktiver filamentbeholdning (Filament Manager, kræver Bambu Cloud)",
--              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):"
-+              "filament_inventory_interval": "Opdateringsinterval for filamentbeholdning (minutter):",
+-              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte"
++              "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
 +              "slicer_cert_id": "Slicer-certifikat-id (valgfrit):",
 +              "slicer_key": "Slicer privat nøgle (valgfrit):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
-index 2c35a8a..d2eef72 100644
+index 7d526cd..b7edbce 100644
 --- a/custom_components/bambu_lab/translations/de.json
 +++ b/custom_components/bambu_lab/translations/de.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Diese Optionen sind nur erforderlich, wenn Sie ein nicht standardmäßiges Setup haben.",
+             "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
-               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
-               "enable_filament_inventory": "Filamentinventar aktivieren (Filament Manager, erfordert Bambu Cloud)",
--              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):"
-+              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):",
+-              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren"
++              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
 +              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
 +              "slicer_key": "Privater Slicer-Schlüssel (optional):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Diese Optionen sind nur erforderlich, wenn Sie ein nicht standardmäßiges Setup haben.",
+             "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
-               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
-               "enable_filament_inventory": "Filamentinventar aktivieren (Filament Manager, erfordert Bambu Cloud)",
--              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):"
-+              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):",
+-              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren"
++              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
 +              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
 +              "slicer_key": "Privater Slicer-Schlüssel (optional):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Diese erweiterten Optionen sind frühe oder riskante Funktionen. Lesen Sie die Dokumentation und verwenden Sie sie auf eigenes Risiko.",
+             "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
-               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
-               "enable_filament_inventory": "Filamentinventar aktivieren (Filament Manager, erfordert Bambu Cloud)",
--              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):"
-+              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):",
+-              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren"
++              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
 +              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
 +              "slicer_key": "Privater Slicer-Schlüssel (optional):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Diese erweiterten Optionen sind frühe oder riskante Funktionen. Lesen Sie die Dokumentation und verwenden Sie sie auf eigenes Risiko.",
+             "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
-               "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
-               "enable_filament_inventory": "Filamentinventar aktivieren (Filament Manager, erfordert Bambu Cloud)",
--              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):"
-+              "filament_inventory_interval": "Aktualisierungsintervall des Filamentbestands (Minuten):",
+-              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren"
++              "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
 +              "slicer_cert_id": "Slicer-Zertifikat-ID (optional):",
 +              "slicer_key": "Privater Slicer-Schlüssel (optional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
-index bc7e5ae..0770462 100644
+index ca85a47..2f73085 100644
 --- a/custom_components/bambu_lab/translations/el.json
 +++ b/custom_components/bambu_lab/translations/el.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Αυτές οι επιλογές χρειάζονται μόνο εάν έχετε μια μη τυπική ρύθμιση.",
+             "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
-               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
-               "enable_filament_inventory": "Ενεργοποίηση αποθέματος νήματος (Filament Manager, απαιτεί Bambu Cloud)",
--              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):"
-+              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):",
+-              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού"
++              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
 +              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
 +              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Αυτές οι επιλογές χρειάζονται μόνο εάν έχετε μια μη τυπική ρύθμιση.",
+             "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
-               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
-               "enable_filament_inventory": "Ενεργοποίηση αποθέματος νήματος (Filament Manager, απαιτεί Bambu Cloud)",
--              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):"
-+              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):",
+-              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού"
++              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
 +              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
 +              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Αυτές οι προηγμένες επιλογές είναι πρώιμες ή επικίνδυνες λειτουργίες. Διαβάστε την τεκμηρίωση και χρησιμοποιήστε τα με δική σας ευθύνη.",
+             "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
-               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
-               "enable_filament_inventory": "Ενεργοποίηση αποθέματος νήματος (Filament Manager, απαιτεί Bambu Cloud)",
--              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):"
-+              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):",
+-              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού"
++              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
 +              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
 +              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Αυτές οι προηγμένες επιλογές είναι πρώιμες ή επικίνδυνες λειτουργίες. Διαβάστε την τεκμηρίωση και χρησιμοποιήστε τα με δική σας ευθύνη.",
+             "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
-               "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
-               "enable_filament_inventory": "Ενεργοποίηση αποθέματος νήματος (Filament Manager, απαιτεί Bambu Cloud)",
--              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):"
-+              "filament_inventory_interval": "Διάστημα ανανέωσης αποθέματος νήματος (λεπτά):",
+-              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού"
++              "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
 +              "slicer_cert_id": "Αναγνωριστικό πιστοποιητικού slicer (προαιρετικό):",
 +              "slicer_key": "Ιδιωτικό κλειδί slicer (προαιρετικό):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
-index 172a83d..a31f808 100644
+index ab4ecd3..c6ad4e9 100644
 --- a/custom_components/bambu_lab/translations/en.json
 +++ b/custom_components/bambu_lab/translations/en.json
-@@ -96,7 +96,9 @@
+@@ -111,7 +111,9 @@
+             "description": "These options are only needed if you have a non-standard setup.",
+             "data": {
                "disable_ssl_verify": "Disable SSL verification",
-               "enable_firmware_update": "Enable firmware update support",
-               "enable_filament_inventory": "Enable filament inventory (Filament Manager, requires Bambu Cloud)",
--              "filament_inventory_interval": "Filament inventory refresh interval (minutes):"
-+              "filament_inventory_interval": "Filament inventory refresh interval (minutes):",
+-              "enable_firmware_update": "Enable firmware update support"
++              "enable_firmware_update": "Enable firmware update support",
 +              "slicer_cert_id": "Slicer certificate ID (optional):",
 +              "slicer_key": "Slicer private key (optional):"
              }
            }
          }
-@@ -120,7 +122,9 @@
+@@ -133,7 +135,9 @@
+             "description": "These options are only needed if you have a non-standard setup.",
+             "data": {
                "disable_ssl_verify": "Disable SSL verification",
-               "enable_firmware_update": "Enable firmware update support",
-               "enable_filament_inventory": "Enable filament inventory (Filament Manager, requires Bambu Cloud)",
--              "filament_inventory_interval": "Filament inventory refresh interval (minutes):"
-+              "filament_inventory_interval": "Filament inventory refresh interval (minutes):",
+-              "enable_firmware_update": "Enable firmware update support"
++              "enable_firmware_update": "Enable firmware update support",
 +              "slicer_cert_id": "Slicer certificate ID (optional):",
 +              "slicer_key": "Slicer private key (optional):"
              }
            }
          }
-@@ -209,7 +213,9 @@
+@@ -235,7 +239,9 @@
+             "description": "These advanced options are early or risky functionality. Read the documentation and use them at your own risk.",
+             "data": {
                "disable_ssl_verify": "Disable SSL verification",
-               "enable_firmware_update": "Enable firmware update support",
-               "enable_filament_inventory": "Enable filament inventory (Filament Manager, requires Bambu Cloud)",
--              "filament_inventory_interval": "Filament inventory refresh interval (minutes):"
-+              "filament_inventory_interval": "Filament inventory refresh interval (minutes):",
+-              "enable_firmware_update": "Enable firmware update support"
++              "enable_firmware_update": "Enable firmware update support",
 +              "slicer_cert_id": "Slicer certificate ID (optional):",
 +              "slicer_key": "Slicer private key (optional):"
              }
            }
          }
-@@ -232,7 +238,9 @@
+@@ -256,7 +262,9 @@
+             "description": "These advanced options are early or risky functionality. Read the documentation and use them at your own risk.",
+             "data": {
                "disable_ssl_verify": "Disable SSL verification",
-               "enable_firmware_update": "Enable firmware update support",
-               "enable_filament_inventory": "Enable filament inventory (Filament Manager, requires Bambu Cloud)",
--              "filament_inventory_interval": "Filament inventory refresh interval (minutes):"
-+              "filament_inventory_interval": "Filament inventory refresh interval (minutes):",
+-              "enable_firmware_update": "Enable firmware update support"
++              "enable_firmware_update": "Enable firmware update support",
 +              "slicer_cert_id": "Slicer certificate ID (optional):",
 +              "slicer_key": "Slicer private key (optional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
-index d27630d..3fad530 100644
+index c926a94..4c0fae7 100644
 --- a/custom_components/bambu_lab/translations/es.json
 +++ b/custom_components/bambu_lab/translations/es.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Estas opciones solo son necesarias si tiene una configuración no estándar.",
+             "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
-               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
-               "enable_filament_inventory": "Habilitar el inventario de filamentos (Filament Manager, requiere Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):",
+-              "enable_firmware_update": "Habilitar soporte de actualización de firmware"
++              "enable_firmware_update": "Habilitar soporte de actualización de firmware",
 +              "slicer_cert_id": "ID del certificado del slicer (opcional):",
 +              "slicer_key": "Clave privada del slicer (opcional):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Estas opciones solo son necesarias si tiene una configuración no estándar.",
+             "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
-               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
-               "enable_filament_inventory": "Habilitar el inventario de filamentos (Filament Manager, requiere Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):",
+-              "enable_firmware_update": "Habilitar soporte de actualización de firmware"
++              "enable_firmware_update": "Habilitar soporte de actualización de firmware",
 +              "slicer_cert_id": "ID del certificado del slicer (opcional):",
 +              "slicer_key": "Clave privada del slicer (opcional):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Estas opciones avanzadas son la funcionalidad temprana o arriesgada. Lea la documentación y úsela bajo su propio riesgo.",
+             "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
-               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
-               "enable_filament_inventory": "Habilitar el inventario de filamentos (Filament Manager, requiere Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):",
+-              "enable_firmware_update": "Habilitar soporte de actualización de firmware"
++              "enable_firmware_update": "Habilitar soporte de actualización de firmware",
 +              "slicer_cert_id": "ID del certificado del slicer (opcional):",
 +              "slicer_key": "Clave privada del slicer (opcional):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Estas opciones avanzadas son la funcionalidad temprana o arriesgada. Lea la documentación y úsela bajo su propio riesgo.",
+             "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
-               "enable_firmware_update": "Habilitar soporte de actualización de firmware",
-               "enable_filament_inventory": "Habilitar el inventario de filamentos (Filament Manager, requiere Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de actualización del inventario de filamentos (minutos):",
+-              "enable_firmware_update": "Habilitar soporte de actualización de firmware"
++              "enable_firmware_update": "Habilitar soporte de actualización de firmware",
 +              "slicer_cert_id": "ID del certificado del slicer (opcional):",
 +              "slicer_key": "Clave privada del slicer (opcional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
-index 648a078..2b3f279 100644
+index 4dc6412..b8797eb 100644
 --- a/custom_components/bambu_lab/translations/fr.json
 +++ b/custom_components/bambu_lab/translations/fr.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Ces options ne sont nécessaires que si vous avez une configuration non standard.",
+             "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
-               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
-               "enable_filament_inventory": "Activer l'inventaire des filaments (Filament Manager, nécessite Bambu Cloud)",
--              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :"
-+              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :",
+-              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel"
++              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
 +              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
 +              "slicer_key": "Clé privée du slicer (facultatif) :"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Ces options ne sont nécessaires que si vous avez une configuration non standard.",
+             "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
-               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
-               "enable_filament_inventory": "Activer l'inventaire des filaments (Filament Manager, nécessite Bambu Cloud)",
--              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :"
-+              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :",
+-              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel"
++              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
 +              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
 +              "slicer_key": "Clé privée du slicer (facultatif) :"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Ces options avancées sont des fonctionnalités précoces ou risquées. Lisez la documentation et utilisez-les à vos propres risques.",
+             "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
-               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
-               "enable_filament_inventory": "Activer l'inventaire des filaments (Filament Manager, nécessite Bambu Cloud)",
--              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :"
-+              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :",
+-              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel"
++              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
 +              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
 +              "slicer_key": "Clé privée du slicer (facultatif) :"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Ces options avancées sont des fonctionnalités précoces ou risquées. Lisez la documentation et utilisez-les à vos propres risques.",
+             "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
-               "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
-               "enable_filament_inventory": "Activer l'inventaire des filaments (Filament Manager, nécessite Bambu Cloud)",
--              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :"
-+              "filament_inventory_interval": "Intervalle d'actualisation de l'inventaire des filaments (minutes) :",
+-              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel"
++              "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
 +              "slicer_cert_id": "ID du certificat du slicer (facultatif) :",
 +              "slicer_key": "Clé privée du slicer (facultatif) :"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
-index 977ab18..de8588b 100644
+index f4b8773..c56826d 100644
 --- a/custom_components/bambu_lab/translations/it.json
 +++ b/custom_components/bambu_lab/translations/it.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Queste opzioni sono necessarie solo se si dispone di una configurazione non standard.",
+             "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
-               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
-               "enable_filament_inventory": "Abilita l'inventario dei filamenti (Filament Manager, richiede Bambu Cloud)",
--              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):"
-+              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):",
+-              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware"
++              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
 +              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
 +              "slicer_key": "Chiave privata dello slicer (opzionale):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Queste opzioni sono necessarie solo se si dispone di una configurazione non standard.",
+             "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
-               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
-               "enable_filament_inventory": "Abilita l'inventario dei filamenti (Filament Manager, richiede Bambu Cloud)",
--              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):"
-+              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):",
+-              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware"
++              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
 +              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
 +              "slicer_key": "Chiave privata dello slicer (opzionale):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Queste opzioni avanzate sono funzionalità precoci o rischiose. Leggi la documentazione e usali a proprio rischio.",
+             "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
-               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
-               "enable_filament_inventory": "Abilita l'inventario dei filamenti (Filament Manager, richiede Bambu Cloud)",
--              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):"
-+              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):",
+-              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware"
++              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
 +              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
 +              "slicer_key": "Chiave privata dello slicer (opzionale):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Queste opzioni avanzate sono funzionalità precoci o rischiose. Leggi la documentazione e usali a proprio rischio.",
+             "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
-               "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
-               "enable_filament_inventory": "Abilita l'inventario dei filamenti (Filament Manager, richiede Bambu Cloud)",
--              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):"
-+              "filament_inventory_interval": "Intervallo di aggiornamento dell'inventario dei filamenti (minuti):",
+-              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware"
++              "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
 +              "slicer_cert_id": "ID certificato dello slicer (opzionale):",
 +              "slicer_key": "Chiave privata dello slicer (opzionale):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
-index d91cc34..17f73f3 100644
+index 9cac0f5..15442ba 100644
 --- a/custom_components/bambu_lab/translations/ko.json
 +++ b/custom_components/bambu_lab/translations/ko.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "이 옵션은 비표준 설정이있는 경우에만 필요합니다.",
+             "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
-               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
-               "enable_filament_inventory": "필라멘트 재고 활성화(Filament Manager, Bambu Cloud 필요)",
--              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):"
-+              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):",
+-              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다"
++              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
 +              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
 +              "slicer_key": "슬라이서 개인 키 (선택 사항):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "이 옵션은 비표준 설정이있는 경우에만 필요합니다.",
+             "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
-               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
-               "enable_filament_inventory": "필라멘트 재고 활성화(Filament Manager, Bambu Cloud 필요)",
--              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):"
-+              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):",
+-              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다"
++              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
 +              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
 +              "slicer_key": "슬라이서 개인 키 (선택 사항):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "이러한 고급 옵션은 초기 또는 위험한 기능입니다. 문서를 읽고 자신의 위험에 따라 사용하십시오.",
+             "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
-               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
-               "enable_filament_inventory": "필라멘트 재고 활성화(Filament Manager, Bambu Cloud 필요)",
--              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):"
-+              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):",
+-              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다"
++              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
 +              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
 +              "slicer_key": "슬라이서 개인 키 (선택 사항):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "이러한 고급 옵션은 초기 또는 위험한 기능입니다. 문서를 읽고 자신의 위험에 따라 사용하십시오.",
+             "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
-               "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
-               "enable_filament_inventory": "필라멘트 재고 활성화(Filament Manager, Bambu Cloud 필요)",
--              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):"
-+              "filament_inventory_interval": "필라멘트 인벤토리 새로 고침 간격(분):",
+-              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다"
++              "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
 +              "slicer_cert_id": "슬라이서 인증서 ID (선택 사항):",
 +              "slicer_key": "슬라이서 개인 키 (선택 사항):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
-index e7db6ec..e6af952 100644
+index e7518e5..214c9c6 100644
 --- a/custom_components/bambu_lab/translations/nl.json
 +++ b/custom_components/bambu_lab/translations/nl.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Deze opties zijn alleen nodig als u een niet-standaardinstelling hebt.",
+             "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
-               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
-               "enable_filament_inventory": "Schakel filamentinventaris in (Filament Manager, vereist Bambu Cloud)",
--              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):"
-+              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):",
+-              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen"
++              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
 +              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
 +              "slicer_key": "Privésleutel van slicer (optioneel):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Deze opties zijn alleen nodig als u een niet-standaardinstelling hebt.",
+             "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
-               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
-               "enable_filament_inventory": "Schakel filamentinventaris in (Filament Manager, vereist Bambu Cloud)",
--              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):"
-+              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):",
+-              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen"
++              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
 +              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
 +              "slicer_key": "Privésleutel van slicer (optioneel):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Deze geavanceerde opties zijn vroege of risicovolle functionaliteit. Lees de documentatie en gebruik ze op eigen risico.",
+             "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
-               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
-               "enable_filament_inventory": "Schakel filamentinventaris in (Filament Manager, vereist Bambu Cloud)",
--              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):"
-+              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):",
+-              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen"
++              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
 +              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
 +              "slicer_key": "Privésleutel van slicer (optioneel):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Deze geavanceerde opties zijn vroege of risicovolle functionaliteit. Lees de documentatie en gebruik ze op eigen risico.",
+             "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
-               "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
-               "enable_filament_inventory": "Schakel filamentinventaris in (Filament Manager, vereist Bambu Cloud)",
--              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):"
-+              "filament_inventory_interval": "Vernieuwingsinterval voor filamentinventaris (minuten):",
+-              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen"
++              "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
 +              "slicer_cert_id": "Slicer-certificaat-ID (optioneel):",
 +              "slicer_key": "Privésleutel van slicer (optioneel):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
-index 22b3f16..fc507a0 100644
+index 89ea188..7b02a80 100644
 --- a/custom_components/bambu_lab/translations/pl.json
 +++ b/custom_components/bambu_lab/translations/pl.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Te opcje są potrzebne tylko przy niestandardowej konfiguracji.",
+             "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
-               "enable_firmware_update": "Włącz aktualizację oprogramowania",
-               "enable_filament_inventory": "Włącz inwentaryzację włókien (Filament Manager, wymaga Bambu Cloud)",
--              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):"
-+              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):",
+-              "enable_firmware_update": "Włącz aktualizację oprogramowania"
++              "enable_firmware_update": "Włącz aktualizację oprogramowania",
 +              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
 +              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Te opcje są potrzebne tylko przy niestandardowej konfiguracji.",
+             "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
-               "enable_firmware_update": "Włącz aktualizację oprogramowania",
-               "enable_filament_inventory": "Włącz inwentaryzację włókien (Filament Manager, wymaga Bambu Cloud)",
--              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):"
-+              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):",
+-              "enable_firmware_update": "Włącz aktualizację oprogramowania"
++              "enable_firmware_update": "Włącz aktualizację oprogramowania",
 +              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
 +              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Te zaawansowane opcje są wczesnymi lub ryzykownymi funkcjami. Zapoznaj się z dokumentacją i korzystaj na własne ryzyko.",
+             "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
-               "enable_firmware_update": "Włącz aktualizację oprogramowania",
-               "enable_filament_inventory": "Włącz inwentaryzację włókien (Filament Manager, wymaga Bambu Cloud)",
--              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):"
-+              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):",
+-              "enable_firmware_update": "Włącz aktualizację oprogramowania"
++              "enable_firmware_update": "Włącz aktualizację oprogramowania",
 +              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
 +              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Te zaawansowane opcje są wczesnymi lub ryzykownymi funkcjami. Zapoznaj się z dokumentacją i korzystaj na własne ryzyko.",
+             "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
-               "enable_firmware_update": "Włącz aktualizację oprogramowania",
-               "enable_filament_inventory": "Włącz inwentaryzację włókien (Filament Manager, wymaga Bambu Cloud)",
--              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):"
-+              "filament_inventory_interval": "Interwał odświeżania zapasów żarnika (w minutach):",
+-              "enable_firmware_update": "Włącz aktualizację oprogramowania"
++              "enable_firmware_update": "Włącz aktualizację oprogramowania",
 +              "slicer_cert_id": "Identyfikator certyfikatu slicera (opcjonalnie):",
 +              "slicer_key": "Klucz prywatny slicera (opcjonalnie):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
-index 0d319b9..71112ec 100644
+index b7b519d..da6d3ef 100644
 --- a/custom_components/bambu_lab/translations/pt-br.json
 +++ b/custom_components/bambu_lab/translations/pt-br.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Essas opções são necessárias apenas se você tiver uma configuração fora do padrão.",
+             "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
-               "enable_firmware_update": "Ativar suporte de atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte de atualização de firmware"
++              "enable_firmware_update": "Ativar suporte de atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Essas opções são necessárias apenas se você tiver uma configuração fora do padrão.",
+             "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
-               "enable_firmware_update": "Ativar suporte de atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte de atualização de firmware"
++              "enable_firmware_update": "Ativar suporte de atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Essas opções avançadas são funcionalidades precoces ou arriscadas. Leia a documentação e use -os por sua conta e risco.",
+             "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
-               "enable_firmware_update": "Ativar suporte de atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte de atualização de firmware"
++              "enable_firmware_update": "Ativar suporte de atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Essas opções avançadas são funcionalidades precoces ou arriscadas. Leia a documentação e use -os por sua conta e risco.",
+             "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
-               "enable_firmware_update": "Ativar suporte de atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte de atualização de firmware"
++              "enable_firmware_update": "Ativar suporte de atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
-index 4941165..9fba843 100644
+index 044a562..99a7610 100644
 --- a/custom_components/bambu_lab/translations/pt.json
 +++ b/custom_components/bambu_lab/translations/pt.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Estas opções só são necessárias se tiveres uma configuração não standard.",
+             "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
-               "enable_firmware_update": "Ativar suporte para atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte para atualização de firmware"
++              "enable_firmware_update": "Ativar suporte para atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Estas opções só são necessárias se tiveres uma configuração não standard.",
+             "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
-               "enable_firmware_update": "Ativar suporte para atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte para atualização de firmware"
++              "enable_firmware_update": "Ativar suporte para atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Estas opções avançadas são funcionalidades experimentais ou de risco. Lê a documentação e usa-as por tua conta e risco.",
+             "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
-               "enable_firmware_update": "Ativar suporte para atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte para atualização de firmware"
++              "enable_firmware_update": "Ativar suporte para atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Estas opções avançadas são funcionalidades experimentais ou de risco. Lê a documentação e usa-as por tua conta e risco.",
+             "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
-               "enable_firmware_update": "Ativar suporte para atualização de firmware",
-               "enable_filament_inventory": "Ativar inventário de filamentos (Filament Manager, requer Bambu Cloud)",
--              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):"
-+              "filament_inventory_interval": "Intervalo de atualização do inventário de filamentos (minutos):",
+-              "enable_firmware_update": "Ativar suporte para atualização de firmware"
++              "enable_firmware_update": "Ativar suporte para atualização de firmware",
 +              "slicer_cert_id": "ID do certificado do slicer (opcional):",
 +              "slicer_key": "Chave privada do slicer (opcional):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
-index 8a35917..b722f5b 100644
+index 60e0066..d4dcf6b 100644
 --- a/custom_components/bambu_lab/translations/sk.json
 +++ b/custom_components/bambu_lab/translations/sk.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "Tieto možnosti sú potrebné iba vtedy, ak máte neštandardné nastavenie.",
+             "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
-               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
-               "enable_filament_inventory": "Povoliť inventár filamentov (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):"
-+              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):",
+-              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru"
++              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
 +              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
 +              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "Tieto možnosti sú potrebné iba vtedy, ak máte neštandardné nastavenie.",
+             "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
-               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
-               "enable_filament_inventory": "Povoliť inventár filamentov (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):"
-+              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):",
+-              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru"
++              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
 +              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
 +              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "Tieto pokročilé možnosti sú včasnou alebo riskantnou funkciou. Prečítajte si dokumentáciu a použite ich na svoje vlastné riziko.",
+             "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
-               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
-               "enable_filament_inventory": "Povoliť inventár filamentov (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):"
-+              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):",
+-              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru"
++              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
 +              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
 +              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "Tieto pokročilé možnosti sú včasnou alebo riskantnou funkciou. Prečítajte si dokumentáciu a použite ich na svoje vlastné riziko.",
+             "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
-               "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
-               "enable_filament_inventory": "Povoliť inventár filamentov (Filament Manager, vyžaduje Bambu Cloud)",
--              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):"
-+              "filament_inventory_interval": "Interval obnovy zásob vlákna (minúty):",
+-              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru"
++              "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
 +              "slicer_cert_id": "ID certifikátu slicera (voliteľné):",
 +              "slicer_key": "Súkromný kľúč slicera (voliteľné):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
-index 60ecec4..22b6ab6 100644
+index 063fc2e..4a8eab0 100644
 --- a/custom_components/bambu_lab/translations/th.json
 +++ b/custom_components/bambu_lab/translations/th.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "ตัวเลือกเหล่านี้จำเป็นก็ต่อเมื่อคุณมีการตั้งค่าที่ไม่ได้มาตรฐาน",
+             "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
-               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
-               "enable_filament_inventory": "เปิดใช้งานสินค้าคงคลังเส้นใย (Filament Manager ต้องใช้ Bambu Cloud)",
--              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):"
-+              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):",
+-              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์"
++              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
 +              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
 +              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "ตัวเลือกเหล่านี้จำเป็นก็ต่อเมื่อคุณมีการตั้งค่าที่ไม่ได้มาตรฐาน",
+             "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
-               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
-               "enable_filament_inventory": "เปิดใช้งานสินค้าคงคลังเส้นใย (Filament Manager ต้องใช้ Bambu Cloud)",
--              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):"
-+              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):",
+-              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์"
++              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
 +              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
 +              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "ตัวเลือกขั้นสูงเหล่านี้เป็นฟังก์ชันการทำงานที่เร็วหรือมีความเสี่ยง อ่านเอกสารและใช้พวกเขาด้วยความเสี่ยงของคุณเอง",
+             "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
-               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
-               "enable_filament_inventory": "เปิดใช้งานสินค้าคงคลังเส้นใย (Filament Manager ต้องใช้ Bambu Cloud)",
--              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):"
-+              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):",
+-              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์"
++              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
 +              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
 +              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "ตัวเลือกขั้นสูงเหล่านี้เป็นฟังก์ชันการทำงานที่เร็วหรือมีความเสี่ยง อ่านเอกสารและใช้พวกเขาด้วยความเสี่ยงของคุณเอง",
+             "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
-               "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
-               "enable_filament_inventory": "เปิดใช้งานสินค้าคงคลังเส้นใย (Filament Manager ต้องใช้ Bambu Cloud)",
--              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):"
-+              "filament_inventory_interval": "ช่วงเวลารีเฟรชสินค้าคงคลังของเส้นใย (นาที):",
+-              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์"
++              "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
 +              "slicer_cert_id": "รหัสใบรับรองสไลเซอร์ (ไม่บังคับ):",
 +              "slicer_key": "คีย์ส่วนตัวของสไลเซอร์ (ไม่บังคับ):"
              }
            }
          }
 diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
-index 3d25cd7..7284a38 100644
+index 99091ce..dbbe3ee 100644
 --- a/custom_components/bambu_lab/translations/zh-Hans.json
 +++ b/custom_components/bambu_lab/translations/zh-Hans.json
-@@ -89,7 +89,9 @@
+@@ -95,7 +95,9 @@
+             "description": "仅当您具有非标准设置时，才需要这些选项。",
+             "data": {
                "disable_ssl_verify": "禁用SSL验证",
-               "enable_firmware_update": "启用固件更新支持",
-               "enable_filament_inventory": "启用灯丝库存（灯丝管理器，需要 Bambu Cloud）",
--              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）："
-+              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）：",
+-              "enable_firmware_update": "启用固件更新支持"
++              "enable_firmware_update": "启用固件更新支持",
 +              "slicer_cert_id": "切片器证书 ID（可选）：",
 +              "slicer_key": "切片器私钥（可选）："
              }
            }
          }
-@@ -113,7 +115,9 @@
+@@ -117,7 +119,9 @@
+             "description": "仅当您具有非标准设置时，才需要这些选项。",
+             "data": {
                "disable_ssl_verify": "禁用SSL验证",
-               "enable_firmware_update": "启用固件更新支持",
-               "enable_filament_inventory": "启用灯丝库存（灯丝管理器，需要 Bambu Cloud）",
--              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）："
-+              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）：",
+-              "enable_firmware_update": "启用固件更新支持"
++              "enable_firmware_update": "启用固件更新支持",
 +              "slicer_cert_id": "切片器证书 ID（可选）：",
 +              "slicer_key": "切片器私钥（可选）："
              }
            }
          }
-@@ -197,7 +201,9 @@
+@@ -214,7 +218,9 @@
+             "description": "这些高级选项是早期或风险的功能。阅读文档并自行使用它们。",
+             "data": {
                "disable_ssl_verify": "禁用SSL验证",
-               "enable_firmware_update": "启用固件更新支持",
-               "enable_filament_inventory": "启用灯丝库存（灯丝管理器，需要 Bambu Cloud）",
--              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）："
-+              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）：",
+-              "enable_firmware_update": "启用固件更新支持"
++              "enable_firmware_update": "启用固件更新支持",
 +              "slicer_cert_id": "切片器证书 ID（可选）：",
 +              "slicer_key": "切片器私钥（可选）："
              }
            }
          }
-@@ -220,7 +226,9 @@
+@@ -235,7 +241,9 @@
+             "description": "这些高级选项是早期或有风险的功能。阅读文档并自行使用它们。",
+             "data": {
                "disable_ssl_verify": "禁用SSL验证",
-               "enable_firmware_update": "启用固件更新支持",
-               "enable_filament_inventory": "启用灯丝库存（灯丝管理器，需要 Bambu Cloud）",
--              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）："
-+              "filament_inventory_interval": "灯丝库存刷新间隔（分钟）：",
+-              "enable_firmware_update": "启用固件更新支持"
++              "enable_firmware_update": "启用固件更新支持",
 +              "slicer_cert_id": "切片器证书 ID（可选）：",
 +              "slicer_key": "切片器私钥（可选）："
              }
