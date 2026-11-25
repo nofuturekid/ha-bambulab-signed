@@ -22,7 +22,7 @@ git() { command git -c core.symlinks=false "$@"; }
 tag=$1
 up=$2
 patches=$(realpath "${3:-$(dirname "$0")/../patches}")
-if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
 	echo "not an upstream release tag: $tag" >&2
 	exit 1
 fi

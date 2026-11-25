@@ -22,8 +22,8 @@ import json
 import os
 import re
 import subprocess
-import tempfile
 import sys
+import tempfile
 from pathlib import Path, PurePosixPath
 
 HERE = Path(__file__).resolve().parent
@@ -34,7 +34,7 @@ _REF = r"[A-Za-z0-9_][A-Za-z0-9._/~^-]{0,99}"
 REV = re.compile(_REF)
 PATH_PART = re.compile(r"[A-Za-z0-9_@+][A-Za-z0-9._@+-]{0,99}")
 COMMIT = re.compile(r"[0-9a-f]{7,40}")
-TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
+TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?")
 
 
 class Refused(Exception):
@@ -44,7 +44,12 @@ class Refused(Exception):
 def parse_rev(value, pattern=REV, what="rev"):
     if not isinstance(value, str) or not pattern.fullmatch(value):
         raise Refused(f"{what} not allowed: {value!r}")
-    if ".." in value or "//" in value or "/." in value or value.endswith((".", "/", ".lock")):
+    if (
+        ".." in value
+        or "//" in value
+        or "/." in value
+        or value.endswith((".", "/", ".lock"))
+    ):
         raise Refused(f"{what} not allowed: {value!r}")
     return value
 
@@ -209,18 +214,41 @@ class Server:
         """After any step that changes the tree: refuse to go on if it holds a
         symlink, from any source. The symlinks are removed first."""
         found = subprocess.run(
-            ["find", str(self.clone), "-path", "*/.git", "-prune", "-o", "-type", "l", "-print"],
-            env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True,
+            [
+                "find",
+                str(self.clone),
+                "-path",
+                "*/.git",
+                "-prune",
+                "-o",
+                "-type",
+                "l",
+                "-print",
+            ],
+            env=self.env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.split()
         if found:
             for link in found:
                 os.unlink(link)
-            raise Refused(f"symlinks in the tree (removed); the port cannot go on: {found}\n{out}")
+            raise Refused(
+                f"symlinks in the tree (removed); the port cannot go on: {found}\n{out}"
+            )
         return out
 
     def t_start(self, a):
         return self.no_symlinks(
-            self.run([str(SCRIPTS / "rebase-series.sh"), self.tag, str(self.clone), str(self.patches)])
+            self.run(
+                [
+                    str(SCRIPTS / "rebase-series.sh"),
+                    self.tag,
+                    str(self.clone),
+                    str(self.patches),
+                ]
+            )
         )
 
     def t_status(self, a):

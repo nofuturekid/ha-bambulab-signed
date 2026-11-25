@@ -81,8 +81,8 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           # A pull request is built on the release main would build next.
-          up=${TAG:-$(gh api repos/greghesp/ha-bambulab/releases/latest --jq .tag_name)}
-          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          up=${TAG:-$(gh api 'repos/greghesp/ha-bambulab/releases?per_page=5' --jq '[.[] | select(.draft | not)][0].tag_name')}
+          if ! [[ $up =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "Unexpected upstream tag: $up" >&2
             exit 1
           fi

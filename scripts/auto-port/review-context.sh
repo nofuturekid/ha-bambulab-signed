@@ -17,7 +17,7 @@ old=$(realpath "$3")
 new=$(realpath "$4")
 out=$(realpath -m "$5")
 for t in "$prev" "$tag"; do
-	[[ $t =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+	[[ $t =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || {
 		echo "bad tag: $t" >&2
 		exit 1
 	}
