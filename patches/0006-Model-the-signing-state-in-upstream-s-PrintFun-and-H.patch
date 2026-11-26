@@ -74,10 +74,10 @@ index c025a12..294d445 100644
          self.fun.print_update({})
          self.assertFalse(self.fun.mqtt_signature_required)
 diff --git a/tests/test_encryption_controls.py b/tests/test_encryption_controls.py
-index 5a42ffd..ee39278 100644
+index 1c935b4..e04ba55 100644
 --- a/tests/test_encryption_controls.py
 +++ b/tests/test_encryption_controls.py
-@@ -38,7 +38,9 @@ def coordinator(monkeypatch):
+@@ -40,7 +40,9 @@ def coordinator(monkeypatch):
  @pytest.fixture
  def print_fun(coordinator):
      """The real detection, delivering its events to the coordinator."""
@@ -88,7 +88,7 @@ index 5a42ffd..ee39278 100644
  
  
  def _printer_ready(coordinator):
-@@ -70,3 +72,18 @@ def test_unchanged_requirement_does_not_rebuild_again(coordinator, print_fun):
+@@ -75,3 +77,18 @@ def test_unchanged_requirement_does_not_rebuild_again(coordinator, print_fun):
      print_fun.print_update({"gcode_state": "RUNNING"})
  
      coordinator._reinitialize_sensors.assert_not_called()

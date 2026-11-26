@@ -52,10 +52,10 @@ index bb14767..0ddd1dd 100644
              BambuLabPauseButton(coordinator, entry),
              BambuLabResumeButton(coordinator, entry),
 diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
-index a26bb4b..773b0de 100644
+index cc335f6..2290659 100644
 --- a/custom_components/bambu_lab/config_flow.py
 +++ b/custom_components/bambu_lab/config_flow.py
-@@ -56,6 +56,7 @@ AMS_HEATER_MODE = "ams_heater"
+@@ -57,6 +57,7 @@ AMS_HEATER_MODE = "ams_heater"
  BOOLEAN_SELECTOR = BooleanSelector()
  NUMBER_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.NUMBER))
  TEXT_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
@@ -63,7 +63,7 @@ index a26bb4b..773b0de 100644
  PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
  REGION_LIST = [
      SelectOptionDict(value="AsiaPacific", label="Asia Pacific"),
-@@ -640,6 +641,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -642,6 +643,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                              "usage_hours": float(user_input['usage_hours']),
                              "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                              "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -72,7 +72,7 @@ index a26bb4b..773b0de 100644
                              "force_ip": force_ip,
                      }
  
-@@ -657,6 +660,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -659,6 +662,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -81,7 +81,7 @@ index a26bb4b..773b0de 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -671,6 +676,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -674,6 +679,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -91,7 +91,7 @@ index a26bb4b..773b0de 100644
              }),
              {'collapsed': True},
          )
-@@ -723,6 +731,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -727,6 +735,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                          "usage_hours": float(user_input['usage_hours']),
                          "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                          "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -100,7 +100,7 @@ index a26bb4b..773b0de 100644
                          "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
                  }
  
-@@ -753,6 +763,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -757,6 +767,8 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -109,7 +109,7 @@ index a26bb4b..773b0de 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -766,6 +778,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -771,6 +783,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -119,17 +119,17 @@ index a26bb4b..773b0de 100644
              }),
              {'collapsed': True},
          )
-@@ -1087,6 +1102,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1092,6 +1107,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                      options["usage_hours"] = float(user_input['usage_hours'])
                      options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                      options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
 +                    options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
 +                    options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
                      options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
+                     options["print_cache_max_mb"] = max(0, int(user_input.get('print_cache_max_mb', 0)))
                      options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
-                     options["force_ip"] = force_ip
-@@ -1121,6 +1138,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
-         default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
+@@ -1131,6 +1148,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         )
          default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
 +        # After submit, missing optional keys mean the user cleared them — do not
@@ -139,7 +139,7 @@ index a26bb4b..773b0de 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -1136,6 +1157,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1150,6 +1171,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -149,17 +149,17 @@ index a26bb4b..773b0de 100644
              }),
              {'collapsed': True},
          )
-@@ -1184,6 +1208,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1199,6 +1223,8 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  options["usage_hours"] = float(user_input['usage_hours'])
                  options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                  options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
 +                options["slicer_cert_id"] = user_input['advanced'].get('slicer_cert_id', '')
 +                options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
                  options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
+                 options["register_cards"] = user_input.get("register_cards", True)
  
-                 title = self._config_entry.data['serial']
-@@ -1217,6 +1243,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
-         default_usage_hours = str(self._config_entry.options.get('usage_hours', 0)) if user_input is None else user_input['usage_hours']
+@@ -1236,6 +1262,10 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+         )
          default_disable_ssl_verify = self._config_entry.options.get('disable_ssl_verify', False) if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', self._config_entry.options.get('disable_ssl_verify', ''))
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
 +        # After submit, missing optional keys mean the user cleared them — do not
@@ -169,7 +169,7 @@ index a26bb4b..773b0de 100644
  
          fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
          fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
-@@ -1227,6 +1257,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1250,6 +1280,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
              vol.Schema({
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
@@ -180,7 +180,7 @@ index a26bb4b..773b0de 100644
              {'collapsed': True},
          )
 diff --git a/custom_components/bambu_lab/coordinator.py b/custom_components/bambu_lab/coordinator.py
-index f7c46dc..54417a0 100644
+index 7717a40..ee9a5b0 100644
 --- a/custom_components/bambu_lab/coordinator.py
 +++ b/custom_components/bambu_lab/coordinator.py
 @@ -3,6 +3,7 @@ from __future__ import annotations
@@ -199,7 +199,7 @@ index f7c46dc..54417a0 100644
          self.client = BambuClient(config)
          remove_legacy_makerworld_device(hass, entry)
          remove_legacy_filament_inventory_entity(hass, entry)
-@@ -372,7 +374,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -374,7 +376,7 @@ class BambuDataUpdateCoordinator(DataUpdateCoordinator):
              write_action = False
  
          if write_action:
@@ -248,7 +248,7 @@ index 870c4f8..d1c6c69 100644
              if description.exists_fn(coordinator):
                  async_add_entities([BambuLabNumber(coordinator, description, entry)])
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index bb1c56e..7f75df6 100644
+index e39d311..1430af6 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
 @@ -33,6 +33,15 @@ from .commands import (
@@ -267,7 +267,7 @@ index bb1c56e..7f75df6 100644
  from .utils import safe_json_loads
  
  class WatchdogThread(threading.Thread):
-@@ -433,6 +442,16 @@ class BambuClient:
+@@ -435,6 +444,16 @@ class BambuClient:
          self._tcp6000_media_supported = None
          self._tcp6000_media_storages = []
          self._tcp6000_media_probe_time = 0.0
@@ -284,7 +284,7 @@ index bb1c56e..7f75df6 100644
  
          self._connected = False
          self._device_confirmed = False
-@@ -475,6 +494,57 @@ class BambuClient:
+@@ -477,6 +496,57 @@ class BambuClient:
          """Return if connected to server"""
          return self._connected
  
@@ -342,7 +342,7 @@ index bb1c56e..7f75df6 100644
      @property
      def camera_enabled(self):
          return self._enable_camera
-@@ -595,6 +665,7 @@ class BambuClient:
+@@ -597,6 +667,7 @@ class BambuClient:
                     properties: mqtt.Properties | None = None, ):
          """Handle connection"""
          LOGGER.debug(f"On Connect: Connected to printer: {result_code}")
@@ -350,7 +350,7 @@ index bb1c56e..7f75df6 100644
          self._on_connect()
  
      def start_camera(self):
-@@ -780,6 +851,10 @@ class BambuClient:
+@@ -782,6 +853,10 @@ class BambuClient:
                      self._device.observe_system_command(data=json_data.get("system"))
                  elif json_data.get("update"):
                      self._device.info.name_update(data=json_data.get("update"))
@@ -361,7 +361,7 @@ index bb1c56e..7f75df6 100644
  
  
          except Exception as e:
-@@ -793,6 +868,13 @@ class BambuClient:
+@@ -795,6 +870,13 @@ class BambuClient:
  
      def publish(self, msg):
          """Publish a custom message"""
@@ -375,7 +375,7 @@ index bb1c56e..7f75df6 100644
          result = self.client.publish(f"device/{self._serial}/request", json.dumps(msg))
          status = result.rc
          if status == 0:
-@@ -877,6 +959,7 @@ class BambuClient:
+@@ -879,6 +961,7 @@ class BambuClient:
                             properties: mqtt.Properties | None = None, ):
  
              LOGGER.debug(f"try_on_connect: Connected to printer: {result_code}")
@@ -383,7 +383,7 @@ index bb1c56e..7f75df6 100644
              self.subscribe_and_request_info()
  
          def try_on_disconnect(client_: mqtt.Client,
-@@ -920,6 +1003,10 @@ class BambuClient:
+@@ -922,6 +1005,10 @@ class BambuClient:
              if (json_data.get('print', {}).get('command', '') == 'push_status') and (json_data.get('print', {}).get('msg', 0) == 0):
                  self._device.print_update(data=json_data.get("print"))
                  self.received_push = True
@@ -496,7 +496,7 @@ index 0000000..bd5f8af
 +        LOGGER.error(f"Failed to parse printer device cert public key: {type(e)} {e}")
 +        return None
 diff --git a/custom_components/bambu_lab/pybambu/models.py b/custom_components/bambu_lab/pybambu/models.py
-index 736492e..08d241a 100644
+index de7d6a8..26f482f 100644
 --- a/custom_components/bambu_lab/pybambu/models.py
 +++ b/custom_components/bambu_lab/pybambu/models.py
 @@ -380,7 +380,7 @@ class Device:
@@ -508,7 +508,7 @@ index 736492e..08d241a 100644
              return False
          elif feature == Features.AMS_SWITCH_COMMAND:
              if model in p1_printers:
-@@ -5878,10 +5878,10 @@ class PrintFun:
+@@ -5913,10 +5913,10 @@ class PrintFun:
          else:
              self._encryption_enabled = self._flag3_authorization_control
  
@@ -521,7 +521,7 @@ index 736492e..08d241a 100644
              # Signing is no longer required (e.g. developer mode was turned on). The
              # control entities were skipped at setup, so let the coordinator reload.
              self._fired_encryption_enabled_event = False
-@@ -5892,6 +5892,11 @@ class PrintFun:
+@@ -5927,6 +5927,11 @@ class PrintFun:
      @property
      def mqtt_signature_required(self) -> bool:
          return self._encryption_enabled
@@ -681,10 +681,10 @@ index 7b38f83..7bada68 100644
                  async_add_entities([BambuLabPromptSoundSwitch(coordinator, entry)])
  
 diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
-index 3a3fedf..273f979 100644
+index a88ac05..3e709d7 100644
 --- a/custom_components/bambu_lab/translations/ca.json
 +++ b/custom_components/bambu_lab/translations/ca.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Aquestes opcions només són necessàries si teniu una configuració no estàndard.",
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
@@ -695,7 +695,7 @@ index 3a3fedf..273f979 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Aquestes opcions només són necessàries si teniu una configuració no estàndard.",
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
@@ -706,7 +706,7 @@ index 3a3fedf..273f979 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Aquestes opcions avançades són una funcionalitat precoç o arriscada. Llegiu la documentació i utilitzeu -les pel vostre propi risc.",
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
@@ -717,7 +717,7 @@ index 3a3fedf..273f979 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Aquestes opcions avançades són una funcionalitat precoç o arriscada. Llegiu la documentació i utilitzeu -les pel vostre propi risc.",
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
@@ -729,10 +729,10 @@ index 3a3fedf..273f979 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
-index ac91f55..7a9d01f 100644
+index 00a8217..30e0705 100644
 --- a/custom_components/bambu_lab/translations/cs.json
 +++ b/custom_components/bambu_lab/translations/cs.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Tyto možnosti jsou potřeba pouze v případě, že máte nestandardní nastavení.",
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
@@ -743,7 +743,7 @@ index ac91f55..7a9d01f 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Tyto možnosti jsou potřeba pouze v případě, že máte nestandardní nastavení.",
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
@@ -754,7 +754,7 @@ index ac91f55..7a9d01f 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Tyto pokročilé možnosti jsou rané nebo riskantní funkce. Přečtěte si dokumentaci a používejte je na vlastní nebezpečí.",
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
@@ -765,7 +765,7 @@ index ac91f55..7a9d01f 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Tyto pokročilé možnosti jsou rané nebo riskantní funkce. Přečtěte si dokumentaci a používejte je na vlastní nebezpečí.",
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
@@ -777,10 +777,10 @@ index ac91f55..7a9d01f 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
-index be90a18..95abbdd 100644
+index 16f5c7b..ab47550 100644
 --- a/custom_components/bambu_lab/translations/da.json
 +++ b/custom_components/bambu_lab/translations/da.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Disse indstillinger er kun nødvendige, hvis du har en ikke-standardopsætning.",
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
@@ -791,7 +791,7 @@ index be90a18..95abbdd 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Disse indstillinger er kun nødvendige, hvis du har en ikke-standardopsætning.",
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
@@ -802,7 +802,7 @@ index be90a18..95abbdd 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Disse avancerede muligheder er tidlig eller risikabel funktionalitet. Læs dokumentationen, og brug dem på din egen risiko.",
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
@@ -813,7 +813,7 @@ index be90a18..95abbdd 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Disse avancerede muligheder er tidlig eller risikabel funktionalitet. Læs dokumentationen og brug dem på din egen risiko.",
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
@@ -825,10 +825,10 @@ index be90a18..95abbdd 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
-index 7d526cd..b7edbce 100644
+index 27dab7c..fa78130 100644
 --- a/custom_components/bambu_lab/translations/de.json
 +++ b/custom_components/bambu_lab/translations/de.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Diese Optionen sind nur erforderlich, wenn Sie ein nicht standardmäßiges Setup haben.",
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
@@ -839,7 +839,7 @@ index 7d526cd..b7edbce 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Diese Optionen sind nur erforderlich, wenn Sie ein nicht standardmäßiges Setup haben.",
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
@@ -850,7 +850,7 @@ index 7d526cd..b7edbce 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Diese erweiterten Optionen sind frühe oder riskante Funktionen. Lesen Sie die Dokumentation und verwenden Sie sie auf eigenes Risiko.",
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
@@ -861,7 +861,7 @@ index 7d526cd..b7edbce 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Diese erweiterten Optionen sind frühe oder riskante Funktionen. Lesen Sie die Dokumentation und verwenden Sie sie auf eigenes Risiko.",
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
@@ -873,10 +873,10 @@ index 7d526cd..b7edbce 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
-index ca85a47..2f73085 100644
+index 5c2a297..f09221f 100644
 --- a/custom_components/bambu_lab/translations/el.json
 +++ b/custom_components/bambu_lab/translations/el.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Αυτές οι επιλογές χρειάζονται μόνο εάν έχετε μια μη τυπική ρύθμιση.",
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
@@ -887,7 +887,7 @@ index ca85a47..2f73085 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Αυτές οι επιλογές χρειάζονται μόνο εάν έχετε μια μη τυπική ρύθμιση.",
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
@@ -898,7 +898,7 @@ index ca85a47..2f73085 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Αυτές οι προηγμένες επιλογές είναι πρώιμες ή επικίνδυνες λειτουργίες. Διαβάστε την τεκμηρίωση και χρησιμοποιήστε τα με δική σας ευθύνη.",
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
@@ -909,7 +909,7 @@ index ca85a47..2f73085 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Αυτές οι προηγμένες επιλογές είναι πρώιμες ή επικίνδυνες λειτουργίες. Διαβάστε την τεκμηρίωση και χρησιμοποιήστε τα με δική σας ευθύνη.",
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
@@ -921,10 +921,10 @@ index ca85a47..2f73085 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
-index ab4ecd3..c6ad4e9 100644
+index 3b563e9..0b2caf5 100644
 --- a/custom_components/bambu_lab/translations/en.json
 +++ b/custom_components/bambu_lab/translations/en.json
-@@ -111,7 +111,9 @@
+@@ -112,7 +112,9 @@
              "description": "These options are only needed if you have a non-standard setup.",
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
@@ -935,7 +935,7 @@ index ab4ecd3..c6ad4e9 100644
              }
            }
          }
-@@ -133,7 +135,9 @@
+@@ -135,7 +137,9 @@
              "description": "These options are only needed if you have a non-standard setup.",
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
@@ -946,7 +946,7 @@ index ab4ecd3..c6ad4e9 100644
              }
            }
          }
-@@ -235,7 +239,9 @@
+@@ -239,7 +243,9 @@
              "description": "These advanced options are early or risky functionality. Read the documentation and use them at your own risk.",
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
@@ -957,7 +957,7 @@ index ab4ecd3..c6ad4e9 100644
              }
            }
          }
-@@ -256,7 +262,9 @@
+@@ -262,7 +268,9 @@
              "description": "These advanced options are early or risky functionality. Read the documentation and use them at your own risk.",
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
@@ -969,10 +969,10 @@ index ab4ecd3..c6ad4e9 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
-index c926a94..4c0fae7 100644
+index 3c2d196..5f1cb43 100644
 --- a/custom_components/bambu_lab/translations/es.json
 +++ b/custom_components/bambu_lab/translations/es.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Estas opciones solo son necesarias si tiene una configuración no estándar.",
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
@@ -983,7 +983,7 @@ index c926a94..4c0fae7 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Estas opciones solo son necesarias si tiene una configuración no estándar.",
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
@@ -994,7 +994,7 @@ index c926a94..4c0fae7 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Estas opciones avanzadas son la funcionalidad temprana o arriesgada. Lea la documentación y úsela bajo su propio riesgo.",
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
@@ -1005,7 +1005,7 @@ index c926a94..4c0fae7 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Estas opciones avanzadas son la funcionalidad temprana o arriesgada. Lea la documentación y úsela bajo su propio riesgo.",
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
@@ -1017,10 +1017,10 @@ index c926a94..4c0fae7 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
-index 4dc6412..b8797eb 100644
+index d5a51bb..59563b9 100644
 --- a/custom_components/bambu_lab/translations/fr.json
 +++ b/custom_components/bambu_lab/translations/fr.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Ces options ne sont nécessaires que si vous avez une configuration non standard.",
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
@@ -1031,7 +1031,7 @@ index 4dc6412..b8797eb 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Ces options ne sont nécessaires que si vous avez une configuration non standard.",
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
@@ -1042,7 +1042,7 @@ index 4dc6412..b8797eb 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Ces options avancées sont des fonctionnalités précoces ou risquées. Lisez la documentation et utilisez-les à vos propres risques.",
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
@@ -1053,7 +1053,7 @@ index 4dc6412..b8797eb 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Ces options avancées sont des fonctionnalités précoces ou risquées. Lisez la documentation et utilisez-les à vos propres risques.",
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
@@ -1065,10 +1065,10 @@ index 4dc6412..b8797eb 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
-index f4b8773..c56826d 100644
+index c90bf9c..cc116c2 100644
 --- a/custom_components/bambu_lab/translations/it.json
 +++ b/custom_components/bambu_lab/translations/it.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Queste opzioni sono necessarie solo se si dispone di una configurazione non standard.",
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
@@ -1079,7 +1079,7 @@ index f4b8773..c56826d 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Queste opzioni sono necessarie solo se si dispone di una configurazione non standard.",
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
@@ -1090,7 +1090,7 @@ index f4b8773..c56826d 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Queste opzioni avanzate sono funzionalità precoci o rischiose. Leggi la documentazione e usali a proprio rischio.",
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
@@ -1101,7 +1101,7 @@ index f4b8773..c56826d 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Queste opzioni avanzate sono funzionalità precoci o rischiose. Leggi la documentazione e usali a proprio rischio.",
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
@@ -1113,10 +1113,10 @@ index f4b8773..c56826d 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
-index 9cac0f5..15442ba 100644
+index 9a980ab..4f7e185 100644
 --- a/custom_components/bambu_lab/translations/ko.json
 +++ b/custom_components/bambu_lab/translations/ko.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "이 옵션은 비표준 설정이있는 경우에만 필요합니다.",
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
@@ -1127,7 +1127,7 @@ index 9cac0f5..15442ba 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "이 옵션은 비표준 설정이있는 경우에만 필요합니다.",
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
@@ -1138,7 +1138,7 @@ index 9cac0f5..15442ba 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "이러한 고급 옵션은 초기 또는 위험한 기능입니다. 문서를 읽고 자신의 위험에 따라 사용하십시오.",
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
@@ -1149,7 +1149,7 @@ index 9cac0f5..15442ba 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "이러한 고급 옵션은 초기 또는 위험한 기능입니다. 문서를 읽고 자신의 위험에 따라 사용하십시오.",
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
@@ -1161,10 +1161,10 @@ index 9cac0f5..15442ba 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
-index e7518e5..214c9c6 100644
+index 6a7ea43..4ecd6fa 100644
 --- a/custom_components/bambu_lab/translations/nl.json
 +++ b/custom_components/bambu_lab/translations/nl.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Deze opties zijn alleen nodig als u een niet-standaardinstelling hebt.",
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
@@ -1175,7 +1175,7 @@ index e7518e5..214c9c6 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Deze opties zijn alleen nodig als u een niet-standaardinstelling hebt.",
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
@@ -1186,7 +1186,7 @@ index e7518e5..214c9c6 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Deze geavanceerde opties zijn vroege of risicovolle functionaliteit. Lees de documentatie en gebruik ze op eigen risico.",
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
@@ -1197,7 +1197,7 @@ index e7518e5..214c9c6 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Deze geavanceerde opties zijn vroege of risicovolle functionaliteit. Lees de documentatie en gebruik ze op eigen risico.",
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
@@ -1209,10 +1209,10 @@ index e7518e5..214c9c6 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
-index 89ea188..7b02a80 100644
+index c10fcf3..e9f03f4 100644
 --- a/custom_components/bambu_lab/translations/pl.json
 +++ b/custom_components/bambu_lab/translations/pl.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Te opcje są potrzebne tylko przy niestandardowej konfiguracji.",
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
@@ -1223,7 +1223,7 @@ index 89ea188..7b02a80 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Te opcje są potrzebne tylko przy niestandardowej konfiguracji.",
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
@@ -1234,7 +1234,7 @@ index 89ea188..7b02a80 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Te zaawansowane opcje są wczesnymi lub ryzykownymi funkcjami. Zapoznaj się z dokumentacją i korzystaj na własne ryzyko.",
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
@@ -1245,7 +1245,7 @@ index 89ea188..7b02a80 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Te zaawansowane opcje są wczesnymi lub ryzykownymi funkcjami. Zapoznaj się z dokumentacją i korzystaj na własne ryzyko.",
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
@@ -1257,10 +1257,10 @@ index 89ea188..7b02a80 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
-index b7b519d..da6d3ef 100644
+index 318977e..eeff5e1 100644
 --- a/custom_components/bambu_lab/translations/pt-br.json
 +++ b/custom_components/bambu_lab/translations/pt-br.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Essas opções são necessárias apenas se você tiver uma configuração fora do padrão.",
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
@@ -1271,7 +1271,7 @@ index b7b519d..da6d3ef 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Essas opções são necessárias apenas se você tiver uma configuração fora do padrão.",
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
@@ -1282,7 +1282,7 @@ index b7b519d..da6d3ef 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Essas opções avançadas são funcionalidades precoces ou arriscadas. Leia a documentação e use -os por sua conta e risco.",
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
@@ -1293,7 +1293,7 @@ index b7b519d..da6d3ef 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Essas opções avançadas são funcionalidades precoces ou arriscadas. Leia a documentação e use -os por sua conta e risco.",
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
@@ -1305,10 +1305,10 @@ index b7b519d..da6d3ef 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
-index 044a562..99a7610 100644
+index 32b9d5e..33040ae 100644
 --- a/custom_components/bambu_lab/translations/pt.json
 +++ b/custom_components/bambu_lab/translations/pt.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Estas opções só são necessárias se tiveres uma configuração não standard.",
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
@@ -1319,7 +1319,7 @@ index 044a562..99a7610 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Estas opções só são necessárias se tiveres uma configuração não standard.",
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
@@ -1330,7 +1330,7 @@ index 044a562..99a7610 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Estas opções avançadas são funcionalidades experimentais ou de risco. Lê a documentação e usa-as por tua conta e risco.",
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
@@ -1341,7 +1341,7 @@ index 044a562..99a7610 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Estas opções avançadas são funcionalidades experimentais ou de risco. Lê a documentação e usa-as por tua conta e risco.",
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
@@ -1353,10 +1353,10 @@ index 044a562..99a7610 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
-index 60e0066..d4dcf6b 100644
+index 7a0952c..f2aa185 100644
 --- a/custom_components/bambu_lab/translations/sk.json
 +++ b/custom_components/bambu_lab/translations/sk.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "Tieto možnosti sú potrebné iba vtedy, ak máte neštandardné nastavenie.",
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
@@ -1367,7 +1367,7 @@ index 60e0066..d4dcf6b 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "Tieto možnosti sú potrebné iba vtedy, ak máte neštandardné nastavenie.",
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
@@ -1378,7 +1378,7 @@ index 60e0066..d4dcf6b 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "Tieto pokročilé možnosti sú včasnou alebo riskantnou funkciou. Prečítajte si dokumentáciu a použite ich na svoje vlastné riziko.",
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
@@ -1389,7 +1389,7 @@ index 60e0066..d4dcf6b 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "Tieto pokročilé možnosti sú včasnou alebo riskantnou funkciou. Prečítajte si dokumentáciu a použite ich na svoje vlastné riziko.",
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
@@ -1401,10 +1401,10 @@ index 60e0066..d4dcf6b 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
-index 063fc2e..4a8eab0 100644
+index 29db439..b9c5284 100644
 --- a/custom_components/bambu_lab/translations/th.json
 +++ b/custom_components/bambu_lab/translations/th.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "ตัวเลือกเหล่านี้จำเป็นก็ต่อเมื่อคุณมีการตั้งค่าที่ไม่ได้มาตรฐาน",
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
@@ -1415,7 +1415,7 @@ index 063fc2e..4a8eab0 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "ตัวเลือกเหล่านี้จำเป็นก็ต่อเมื่อคุณมีการตั้งค่าที่ไม่ได้มาตรฐาน",
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
@@ -1426,7 +1426,7 @@ index 063fc2e..4a8eab0 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "ตัวเลือกขั้นสูงเหล่านี้เป็นฟังก์ชันการทำงานที่เร็วหรือมีความเสี่ยง อ่านเอกสารและใช้พวกเขาด้วยความเสี่ยงของคุณเอง",
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
@@ -1437,7 +1437,7 @@ index 063fc2e..4a8eab0 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "ตัวเลือกขั้นสูงเหล่านี้เป็นฟังก์ชันการทำงานที่เร็วหรือมีความเสี่ยง อ่านเอกสารและใช้พวกเขาด้วยความเสี่ยงของคุณเอง",
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
@@ -1449,10 +1449,10 @@ index 063fc2e..4a8eab0 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
-index 99091ce..dbbe3ee 100644
+index 749ff3a..d18a53d 100644
 --- a/custom_components/bambu_lab/translations/zh-Hans.json
 +++ b/custom_components/bambu_lab/translations/zh-Hans.json
-@@ -95,7 +95,9 @@
+@@ -96,7 +96,9 @@
              "description": "仅当您具有非标准设置时，才需要这些选项。",
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
@@ -1463,7 +1463,7 @@ index 99091ce..dbbe3ee 100644
              }
            }
          }
-@@ -117,7 +119,9 @@
+@@ -119,7 +121,9 @@
              "description": "仅当您具有非标准设置时，才需要这些选项。",
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
@@ -1474,7 +1474,7 @@ index 99091ce..dbbe3ee 100644
              }
            }
          }
-@@ -214,7 +218,9 @@
+@@ -218,7 +222,9 @@
              "description": "这些高级选项是早期或风险的功能。阅读文档并自行使用它们。",
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
@@ -1485,7 +1485,7 @@ index 99091ce..dbbe3ee 100644
              }
            }
          }
-@@ -235,7 +241,9 @@
+@@ -241,7 +247,9 @@
              "description": "这些高级选项是早期或有风险的功能。阅读文档并自行使用它们。",
              "data": {
                "disable_ssl_verify": "禁用SSL验证",

@@ -23,10 +23,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  2 files changed, 40 insertions(+), 28 deletions(-)
 
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index fd382b8..16f0866 100644
+index 99a8974..a6c2a07 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
-@@ -896,7 +896,11 @@ class BambuClient:
+@@ -898,7 +898,11 @@ class BambuClient:
                  self._signing_key,
                  device_key=self.get_printer_device_public_key(),
              )

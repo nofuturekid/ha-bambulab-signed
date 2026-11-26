@@ -29,10 +29,10 @@ Signed-off-by: Alexey Cluster <cluster@cluster.wtf>
  21 files changed, 279 insertions(+), 154 deletions(-)
 
 diff --git a/custom_components/bambu_lab/config_flow.py b/custom_components/bambu_lab/config_flow.py
-index 773b0de..35c5452 100644
+index 2290659..349c578 100644
 --- a/custom_components/bambu_lab/config_flow.py
 +++ b/custom_components/bambu_lab/config_flow.py
-@@ -641,8 +641,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -643,8 +643,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                              "usage_hours": float(user_input['usage_hours']),
                              "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                              "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -43,7 +43,7 @@ index 773b0de..35c5452 100644
                              "force_ip": force_ip,
                      }
  
-@@ -660,8 +661,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -662,8 +663,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -54,7 +54,7 @@ index 773b0de..35c5452 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -677,8 +679,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -680,8 +682,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -65,7 +65,7 @@ index 773b0de..35c5452 100644
              }),
              {'collapsed': True},
          )
-@@ -731,8 +734,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -735,8 +738,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                          "usage_hours": float(user_input['usage_hours']),
                          "disable_ssl_verify": user_input['advanced']['disable_ssl_verify'],
                          "enable_firmware_update": user_input['advanced']['enable_firmware_update'],
@@ -76,7 +76,7 @@ index 773b0de..35c5452 100644
                          "force_ip": (user_input['host'] != bambu.get_device().info.ip_address),
                  }
  
-@@ -763,8 +767,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -767,8 +771,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
          default_usage_hours = "0" if user_input is None else user_input['usage_hours']
          default_disable_ssl_verify = False if user_input is None else user_input.get('advanced', {}).get('disable_ssl_verify', '')
          default_enable_firmware_update = False if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', '')
@@ -87,7 +87,7 @@ index 773b0de..35c5452 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -779,8 +784,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+@@ -784,8 +789,9 @@ class BambuLabFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -98,7 +98,7 @@ index 773b0de..35c5452 100644
              }),
              {'collapsed': True},
          )
-@@ -1102,8 +1108,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1107,8 +1113,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                      options["usage_hours"] = float(user_input['usage_hours'])
                      options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                      options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -107,9 +107,9 @@ index 773b0de..35c5452 100644
                      options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
 +                    options["slicer_crl"] = user_input['advanced'].get('slicer_crl', '')
                      options["print_cache_count"] = max(-1, int(user_input['print_cache_count']))
+                     options["print_cache_max_mb"] = max(0, int(user_input.get('print_cache_max_mb', 0)))
                      options["timelapse_cache_count"] = max(-1, int(user_input['timelapse_cache_count']))
-                     options["force_ip"] = force_ip
-@@ -1140,8 +1147,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1150,8 +1157,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
          # After submit, missing optional keys mean the user cleared them — do not
          # fall back to the previously stored options value.
@@ -120,7 +120,7 @@ index 773b0de..35c5452 100644
  
          # Build form
          fields: OrderedDict[vol.Marker, Any] = OrderedDict()
-@@ -1158,8 +1166,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1172,8 +1180,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -131,7 +131,7 @@ index 773b0de..35c5452 100644
              }),
              {'collapsed': True},
          )
-@@ -1208,8 +1217,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1223,8 +1232,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  options["usage_hours"] = float(user_input['usage_hours'])
                  options["disable_ssl_verify"] = user_input['advanced']['disable_ssl_verify']
                  options["enable_firmware_update"] = user_input['advanced']['enable_firmware_update']
@@ -140,9 +140,9 @@ index 773b0de..35c5452 100644
                  options["slicer_key"] = user_input['advanced'].get('slicer_key', '')
 +                options["slicer_crl"] = user_input['advanced'].get('slicer_crl', '')
                  options["force_ip"] = (user_input['host'] != bambu.get_device().info.ip_address)
+                 options["register_cards"] = user_input.get("register_cards", True)
  
-                 title = self._config_entry.data['serial']
-@@ -1245,8 +1255,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1264,8 +1274,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
          default_enable_firmware_update = self._config_entry.options.get('enable_firmware_update', False) if user_input is None else user_input.get('advanced', {}).get('enable_firmware_update', self._config_entry.options.get('enable_firmware_update', ''))
          # After submit, missing optional keys mean the user cleared them — do not
          # fall back to the previously stored options value.
@@ -153,7 +153,7 @@ index 773b0de..35c5452 100644
  
          fields[vol.Required('host', default=default_host)] = TEXT_SELECTOR
          fields[vol.Required('access_code', default=default_access_code)] = TEXT_SELECTOR
-@@ -1258,8 +1269,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
+@@ -1281,8 +1292,9 @@ class BambuOptionsFlowHandler(config_entries.OptionsFlow):
                  vol.Required('disable_ssl_verify', default=default_disable_ssl_verify): BOOLEAN_SELECTOR,
                  vol.Required('enable_firmware_update', default=default_enable_firmware_update): BOOLEAN_SELECTOR,
                  # Use suggested_value (not default) so clearing the field saves as empty.
@@ -165,7 +165,7 @@ index 773b0de..35c5452 100644
              {'collapsed': True},
          )
 diff --git a/custom_components/bambu_lab/pybambu/bambu_client.py b/custom_components/bambu_lab/pybambu/bambu_client.py
-index 7f75df6..fd382b8 100644
+index 1430af6..99a8974 100644
 --- a/custom_components/bambu_lab/pybambu/bambu_client.py
 +++ b/custom_components/bambu_lab/pybambu/bambu_client.py
 @@ -1,6 +1,7 @@
@@ -199,7 +199,7 @@ index 7f75df6..fd382b8 100644
  from .utils import safe_json_loads
  
  class WatchdogThread(threading.Thread):
-@@ -444,7 +445,14 @@ class BambuClient:
+@@ -446,7 +447,14 @@ class BambuClient:
          self._tcp6000_media_probe_time = 0.0
          self._slicer_cert_id = config.get('slicer_cert_id', '')
          self._slicer_key = config.get('slicer_key', '')
@@ -215,7 +215,7 @@ index 7f75df6..fd382b8 100644
          self._device_cert_path = config.get('device_cert_path', '')
          self._device_cert_pem: str | None = None
          self._device_public_key = None
-@@ -497,7 +505,7 @@ class BambuClient:
+@@ -499,7 +507,7 @@ class BambuClient:
      @property
      def mqtt_signing_enabled(self) -> bool:
          """Return True when we can sign outgoing print commands."""
@@ -224,7 +224,7 @@ index 7f75df6..fd382b8 100644
  
      def get_printer_device_cert(self) -> str | None:
          """Return the cached leaf device-cert PEM."""
-@@ -657,6 +665,16 @@ class BambuClient:
+@@ -659,6 +667,16 @@ class BambuClient:
          self.publish(GET_VERSION)
          self.publish(PUSH_ALL)
  
@@ -241,7 +241,7 @@ index 7f75df6..fd382b8 100644
      def on_connect(self,
                     client_: mqtt.Client,
                     userdata: None,
-@@ -691,7 +709,10 @@ class BambuClient:
+@@ -693,7 +711,10 @@ class BambuClient:
          self._connected = True
          self._device_confirmed = False
  
@@ -253,7 +253,7 @@ index 7f75df6..fd382b8 100644
  
      def _on_device_confirmed(self):
          """Called on first data payload received from the printer after connection."""
-@@ -871,7 +892,7 @@ class BambuClient:
+@@ -873,7 +894,7 @@ class BambuClient:
          if self.mqtt_signing_enabled:
              msg = maybe_sign(
                  msg,
@@ -318,10 +318,10 @@ index c3f178f..9117efa 100644
      """Mirror the C++ is_print_payload: the first JSON key must be 'print'."""
      if not isinstance(msg, dict) or not msg:
 diff --git a/custom_components/bambu_lab/translations/ca.json b/custom_components/bambu_lab/translations/ca.json
-index 273f979..6ee57ff 100644
+index 3e709d7..7bdd8e6 100644
 --- a/custom_components/bambu_lab/translations/ca.json
 +++ b/custom_components/bambu_lab/translations/ca.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
                "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
@@ -333,7 +333,7 @@ index 273f979..6ee57ff 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
                "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
@@ -345,7 +345,7 @@ index 273f979..6ee57ff 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
                "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
@@ -357,7 +357,7 @@ index 273f979..6ee57ff 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Desactiva la verificació SSL",
                "enable_firmware_update": "Activa l'assistència d'actualització del firmware",
@@ -370,10 +370,10 @@ index 273f979..6ee57ff 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/cs.json b/custom_components/bambu_lab/translations/cs.json
-index 7a9d01f..f206d5c 100644
+index 30e0705..7798484 100644
 --- a/custom_components/bambu_lab/translations/cs.json
 +++ b/custom_components/bambu_lab/translations/cs.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
                "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
@@ -385,7 +385,7 @@ index 7a9d01f..f206d5c 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
                "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
@@ -397,7 +397,7 @@ index 7a9d01f..f206d5c 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
                "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
@@ -409,7 +409,7 @@ index 7a9d01f..f206d5c 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Zakázat ověřování SSL",
                "enable_firmware_update": "Povolit podporu aktualizace firmwaru",
@@ -422,10 +422,10 @@ index 7a9d01f..f206d5c 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/da.json b/custom_components/bambu_lab/translations/da.json
-index 95abbdd..bafe45b 100644
+index ab47550..3f9bb4b 100644
 --- a/custom_components/bambu_lab/translations/da.json
 +++ b/custom_components/bambu_lab/translations/da.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
                "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
@@ -437,7 +437,7 @@ index 95abbdd..bafe45b 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
                "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
@@ -449,7 +449,7 @@ index 95abbdd..bafe45b 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
                "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
@@ -461,7 +461,7 @@ index 95abbdd..bafe45b 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Deaktiver SSL -verifikation",
                "enable_firmware_update": "Aktivér firmwareopdateringsstøtte",
@@ -474,10 +474,10 @@ index 95abbdd..bafe45b 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/de.json b/custom_components/bambu_lab/translations/de.json
-index b7edbce..5af7329 100644
+index fa78130..25c501d 100644
 --- a/custom_components/bambu_lab/translations/de.json
 +++ b/custom_components/bambu_lab/translations/de.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
                "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
@@ -489,7 +489,7 @@ index b7edbce..5af7329 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
                "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
@@ -501,7 +501,7 @@ index b7edbce..5af7329 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
                "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
@@ -513,7 +513,7 @@ index b7edbce..5af7329 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "SSL-Überprüfung deaktivieren",
                "enable_firmware_update": "Unterstützung für Firmware-Updates aktivieren",
@@ -526,10 +526,10 @@ index b7edbce..5af7329 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/el.json b/custom_components/bambu_lab/translations/el.json
-index 2f73085..5657521 100644
+index f09221f..ada8f19 100644
 --- a/custom_components/bambu_lab/translations/el.json
 +++ b/custom_components/bambu_lab/translations/el.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
                "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
@@ -541,7 +541,7 @@ index 2f73085..5657521 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
                "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
@@ -553,7 +553,7 @@ index 2f73085..5657521 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
                "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
@@ -565,7 +565,7 @@ index 2f73085..5657521 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Απενεργοποιήστε την επαλήθευση SSL",
                "enable_firmware_update": "Ενεργοποίηση υποστήριξης ενημέρωσης υλικολογισμικού",
@@ -578,10 +578,10 @@ index 2f73085..5657521 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/en.json b/custom_components/bambu_lab/translations/en.json
-index c6ad4e9..4e87fc4 100644
+index 0b2caf5..972ef78 100644
 --- a/custom_components/bambu_lab/translations/en.json
 +++ b/custom_components/bambu_lab/translations/en.json
-@@ -112,8 +112,9 @@
+@@ -113,8 +113,9 @@
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
                "enable_firmware_update": "Enable firmware update support",
@@ -593,7 +593,7 @@ index c6ad4e9..4e87fc4 100644
              }
            }
          }
-@@ -136,8 +137,9 @@
+@@ -138,8 +139,9 @@
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
                "enable_firmware_update": "Enable firmware update support",
@@ -605,7 +605,7 @@ index c6ad4e9..4e87fc4 100644
              }
            }
          }
-@@ -240,8 +242,9 @@
+@@ -244,8 +246,9 @@
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
                "enable_firmware_update": "Enable firmware update support",
@@ -617,7 +617,7 @@ index c6ad4e9..4e87fc4 100644
              }
            }
          }
-@@ -263,8 +266,9 @@
+@@ -269,8 +272,9 @@
              "data": {
                "disable_ssl_verify": "Disable SSL verification",
                "enable_firmware_update": "Enable firmware update support",
@@ -630,10 +630,10 @@ index c6ad4e9..4e87fc4 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/es.json b/custom_components/bambu_lab/translations/es.json
-index 4c0fae7..cc9713e 100644
+index 5f1cb43..0fb146c 100644
 --- a/custom_components/bambu_lab/translations/es.json
 +++ b/custom_components/bambu_lab/translations/es.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
                "enable_firmware_update": "Habilitar soporte de actualización de firmware",
@@ -645,7 +645,7 @@ index 4c0fae7..cc9713e 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
                "enable_firmware_update": "Habilitar soporte de actualización de firmware",
@@ -657,7 +657,7 @@ index 4c0fae7..cc9713e 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
                "enable_firmware_update": "Habilitar soporte de actualización de firmware",
@@ -669,7 +669,7 @@ index 4c0fae7..cc9713e 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Desactivar la verificación SSL",
                "enable_firmware_update": "Habilitar soporte de actualización de firmware",
@@ -682,10 +682,10 @@ index 4c0fae7..cc9713e 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/fr.json b/custom_components/bambu_lab/translations/fr.json
-index b8797eb..5b8d6b4 100644
+index 59563b9..c669c9c 100644
 --- a/custom_components/bambu_lab/translations/fr.json
 +++ b/custom_components/bambu_lab/translations/fr.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
                "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
@@ -697,7 +697,7 @@ index b8797eb..5b8d6b4 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
                "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
@@ -709,7 +709,7 @@ index b8797eb..5b8d6b4 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
                "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
@@ -721,7 +721,7 @@ index b8797eb..5b8d6b4 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Désactiver la vérification SSL",
                "enable_firmware_update": "Activer la prise en charge de la mise à jour du micrologiciel",
@@ -734,10 +734,10 @@ index b8797eb..5b8d6b4 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/it.json b/custom_components/bambu_lab/translations/it.json
-index c56826d..ea8b8fd 100644
+index cc116c2..8e62897 100644
 --- a/custom_components/bambu_lab/translations/it.json
 +++ b/custom_components/bambu_lab/translations/it.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
                "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
@@ -749,7 +749,7 @@ index c56826d..ea8b8fd 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
                "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
@@ -761,7 +761,7 @@ index c56826d..ea8b8fd 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
                "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
@@ -773,7 +773,7 @@ index c56826d..ea8b8fd 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Disabilita la verifica SSL",
                "enable_firmware_update": "Abilita supporto per l'aggiornamento del firmware",
@@ -786,10 +786,10 @@ index c56826d..ea8b8fd 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/ko.json b/custom_components/bambu_lab/translations/ko.json
-index 15442ba..b274496 100644
+index 4f7e185..404dfad 100644
 --- a/custom_components/bambu_lab/translations/ko.json
 +++ b/custom_components/bambu_lab/translations/ko.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
                "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
@@ -801,7 +801,7 @@ index 15442ba..b274496 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
                "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
@@ -813,7 +813,7 @@ index 15442ba..b274496 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
                "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
@@ -825,7 +825,7 @@ index 15442ba..b274496 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "SSL 확인을 비활성화합니다",
                "enable_firmware_update": "펌웨어 업데이트 지원을 활성화합니다",
@@ -838,10 +838,10 @@ index 15442ba..b274496 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/nl.json b/custom_components/bambu_lab/translations/nl.json
-index 214c9c6..12a9226 100644
+index 4ecd6fa..74410cd 100644
 --- a/custom_components/bambu_lab/translations/nl.json
 +++ b/custom_components/bambu_lab/translations/nl.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
                "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
@@ -853,7 +853,7 @@ index 214c9c6..12a9226 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
                "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
@@ -865,7 +865,7 @@ index 214c9c6..12a9226 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
                "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
@@ -877,7 +877,7 @@ index 214c9c6..12a9226 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Schakel SSL -verificatie uit",
                "enable_firmware_update": "Ondersteuning van firmware -updates inschakelen",
@@ -890,10 +890,10 @@ index 214c9c6..12a9226 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pl.json b/custom_components/bambu_lab/translations/pl.json
-index 7b02a80..29e52ae 100644
+index e9f03f4..b2bbf9e 100644
 --- a/custom_components/bambu_lab/translations/pl.json
 +++ b/custom_components/bambu_lab/translations/pl.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
                "enable_firmware_update": "Włącz aktualizację oprogramowania",
@@ -905,7 +905,7 @@ index 7b02a80..29e52ae 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
                "enable_firmware_update": "Włącz aktualizację oprogramowania",
@@ -917,7 +917,7 @@ index 7b02a80..29e52ae 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
                "enable_firmware_update": "Włącz aktualizację oprogramowania",
@@ -929,7 +929,7 @@ index 7b02a80..29e52ae 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Wyłącz weryfikację SSL",
                "enable_firmware_update": "Włącz aktualizację oprogramowania",
@@ -942,10 +942,10 @@ index 7b02a80..29e52ae 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt-br.json b/custom_components/bambu_lab/translations/pt-br.json
-index da6d3ef..a5b917c 100644
+index eeff5e1..bd57d53 100644
 --- a/custom_components/bambu_lab/translations/pt-br.json
 +++ b/custom_components/bambu_lab/translations/pt-br.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
                "enable_firmware_update": "Ativar suporte de atualização de firmware",
@@ -957,7 +957,7 @@ index da6d3ef..a5b917c 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
                "enable_firmware_update": "Ativar suporte de atualização de firmware",
@@ -969,7 +969,7 @@ index da6d3ef..a5b917c 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
                "enable_firmware_update": "Ativar suporte de atualização de firmware",
@@ -981,7 +981,7 @@ index da6d3ef..a5b917c 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Desative a verificação SSL",
                "enable_firmware_update": "Ativar suporte de atualização de firmware",
@@ -994,10 +994,10 @@ index da6d3ef..a5b917c 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/pt.json b/custom_components/bambu_lab/translations/pt.json
-index 99a7610..4e84285 100644
+index 33040ae..2da761b 100644
 --- a/custom_components/bambu_lab/translations/pt.json
 +++ b/custom_components/bambu_lab/translations/pt.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
                "enable_firmware_update": "Ativar suporte para atualização de firmware",
@@ -1009,7 +1009,7 @@ index 99a7610..4e84285 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
                "enable_firmware_update": "Ativar suporte para atualização de firmware",
@@ -1021,7 +1021,7 @@ index 99a7610..4e84285 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
                "enable_firmware_update": "Ativar suporte para atualização de firmware",
@@ -1033,7 +1033,7 @@ index 99a7610..4e84285 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Desativar verificação SSL",
                "enable_firmware_update": "Ativar suporte para atualização de firmware",
@@ -1046,10 +1046,10 @@ index 99a7610..4e84285 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/sk.json b/custom_components/bambu_lab/translations/sk.json
-index d4dcf6b..2d9ae06 100644
+index f2aa185..9f663d2 100644
 --- a/custom_components/bambu_lab/translations/sk.json
 +++ b/custom_components/bambu_lab/translations/sk.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
                "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
@@ -1061,7 +1061,7 @@ index d4dcf6b..2d9ae06 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
                "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
@@ -1073,7 +1073,7 @@ index d4dcf6b..2d9ae06 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
                "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
@@ -1085,7 +1085,7 @@ index d4dcf6b..2d9ae06 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "Zakázať overenie SSL",
                "enable_firmware_update": "Povoľte podporu aktualizácie firmvéru",
@@ -1098,10 +1098,10 @@ index d4dcf6b..2d9ae06 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/th.json b/custom_components/bambu_lab/translations/th.json
-index 4a8eab0..4d75ff8 100644
+index b9c5284..02857f7 100644
 --- a/custom_components/bambu_lab/translations/th.json
 +++ b/custom_components/bambu_lab/translations/th.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
                "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
@@ -1113,7 +1113,7 @@ index 4a8eab0..4d75ff8 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
                "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
@@ -1125,7 +1125,7 @@ index 4a8eab0..4d75ff8 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
                "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
@@ -1137,7 +1137,7 @@ index 4a8eab0..4d75ff8 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "ปิดใช้งานการตรวจสอบ SSL",
                "enable_firmware_update": "เปิดใช้งานการสนับสนุนการอัปเดตเฟิร์มแวร์",
@@ -1150,10 +1150,10 @@ index 4a8eab0..4d75ff8 100644
            }
          }
 diff --git a/custom_components/bambu_lab/translations/zh-Hans.json b/custom_components/bambu_lab/translations/zh-Hans.json
-index dbbe3ee..d4b44ee 100644
+index d18a53d..ff412b9 100644
 --- a/custom_components/bambu_lab/translations/zh-Hans.json
 +++ b/custom_components/bambu_lab/translations/zh-Hans.json
-@@ -96,8 +96,9 @@
+@@ -97,8 +97,9 @@
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
                "enable_firmware_update": "启用固件更新支持",
@@ -1165,7 +1165,7 @@ index dbbe3ee..d4b44ee 100644
              }
            }
          }
-@@ -120,8 +121,9 @@
+@@ -122,8 +123,9 @@
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
                "enable_firmware_update": "启用固件更新支持",
@@ -1177,7 +1177,7 @@ index dbbe3ee..d4b44ee 100644
              }
            }
          }
-@@ -219,8 +221,9 @@
+@@ -223,8 +225,9 @@
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
                "enable_firmware_update": "启用固件更新支持",
@@ -1189,7 +1189,7 @@ index dbbe3ee..d4b44ee 100644
              }
            }
          }
-@@ -242,8 +245,9 @@
+@@ -248,8 +251,9 @@
              "data": {
                "disable_ssl_verify": "禁用SSL验证",
                "enable_firmware_update": "启用固件更新支持",

@@ -28,7 +28,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 custom_components/bambu_lab/slicer_renewal.py
 
 diff --git a/custom_components/bambu_lab/__init__.py b/custom_components/bambu_lab/__init__.py
-index d4ec52d..0b6360d 100644
+index 2d68165..bbe2894 100644
 --- a/custom_components/bambu_lab/__init__.py
 +++ b/custom_components/bambu_lab/__init__.py
 @@ -41,6 +41,7 @@ from .filamentinventory import BambuFilamentCoordinator, async_get_filament_inve
@@ -39,7 +39,7 @@ index d4ec52d..0b6360d 100644
  from .diagnostics import TO_REDACT
  from .frontend import BambuLabCardRegistration
  from .config_flow import CONFIG_VERSION
-@@ -531,6 +532,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+@@ -495,6 +496,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
      # sensor reinitialization happens entirely after the initial setup.
      await coordinator.start_mqtt()
  
